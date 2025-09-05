@@ -18,7 +18,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-8">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

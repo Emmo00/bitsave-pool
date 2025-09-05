@@ -169,7 +169,7 @@ function PlanCard({ plan, index }: { plan: any; index: number }) {
       <div className="flex justify-between items-start mb-4">
         <div>
           <h4 className="text-lg font-semibold text-foreground">
-            Savings Plan #{plan.id}
+            {plan.name || `Savings Plan #${plan.id}`}
           </h4>
           <div className="flex items-center gap-2 mt-1">
             <span

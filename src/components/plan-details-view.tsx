@@ -115,7 +115,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
           </Button>
           <div className="text-center flex-1">
             <h1 className="text-lg font-bold text-foreground text-balance">
-              Savings Plan #{plan.id}
+              {plan.name || `Savings Plan #${plan.id}`}
             </h1>
             <Badge
               variant={
@@ -415,7 +415,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             onClose={() => setShowCancelModal(false)} 
             plan={{
               id: plan.id.toString(),
-              name: `Savings Plan #${plan.id}`,
+              name: plan.name || `Savings Plan #${plan.id}`,
             }}
           />
 

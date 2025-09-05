@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 
 export interface UserPlanSummary {
   id: number;
+  name: string;
   owner: Address;
   beneficiary: Address;
   token: Address;
@@ -66,21 +67,23 @@ export function useUserPlans() {
       // Skip if we already have this plan
       if (planMap.has(id)) return;
       
-      const owner = (planData.result as any)[1] as Address;
-      const beneficiary = (planData.result as any)[2] as Address;
-      const token = (planData.result as any)[3] as Address;
-      const target = (planData.result as any)[4] as bigint;
-      const deposited = (planData.result as any)[5] as bigint;
-      const deadline = (planData.result as any)[6] as bigint;
-      const active = (planData.result as any)[7] as boolean;
-      const withdrawn = (planData.result as any)[8] as boolean;
-      const cancelled = (planData.result as any)[9] as boolean;
+      const name = (planData.result as any)[1] as string;
+      const owner = (planData.result as any)[2] as Address;
+      const beneficiary = (planData.result as any)[3] as Address;
+      const token = (planData.result as any)[4] as Address;
+      const target = (planData.result as any)[5] as bigint;
+      const deposited = (planData.result as any)[6] as bigint;
+      const deadline = (planData.result as any)[7] as bigint;
+      const active = (planData.result as any)[8] as boolean;
+      const withdrawn = (planData.result as any)[9] as boolean;
+      const cancelled = (planData.result as any)[10] as boolean;
       // participants not available here, would need extra call if needed
       const myContribution = myContributions[i]?.result as bigint || 0n;
       const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === token.toLowerCase());
       
       planMap.set(id, {
         id,
+        name,
         owner,
         beneficiary,
         token,

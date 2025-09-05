@@ -189,7 +189,7 @@ function PlanCard({ plan }: { plan: any }) {
       <div className="flex items-start justify-between mb-3">
         <div>
           <h4 className="font-black text-foreground text-balance uppercase tracking-wide">
-            Savings Plan #{plan.id}
+            {plan.name || `Savings Plan #${plan.id}`}
           </h4>
           <p className="text-sm text-muted-foreground font-bold uppercase">{tokenSymbol}</p>
         </div>

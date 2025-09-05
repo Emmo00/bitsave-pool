@@ -4,13 +4,15 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { motion } from "framer-motion"
-import { Plus, X, Target, Users, ArrowRight } from "lucide-react"
+import { Plus, X, Target, Users, ArrowRight, Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { resolveENSOrAddress, generateFallbackAvatar, ENSResolutionError } from "@/utils/ens"
+import { SUPPORTED_TOKENS } from "@/contracts/config"
 import type { PlanFormData } from "./create-savings-flow"
 
 interface CreatePlanFormProps {
@@ -19,11 +21,17 @@ interface CreatePlanFormProps {
   onNext: () => void
 }
 
-const stablecoins = [
-  { value: "USDC", label: "USDC", icon: "💰" },
-  { value: "DAI", label: "DAI", icon: "🏛️" },
-  { value: "USDT", label: "USDT", icon: "💵" },
-]
+// Generate token options with icons from supported tokens
+const getTokenIcon = (symbol: string) => {
+  const iconMap: Record<string, string> = {
+    USDC: "💰",
+    DAI: "🏛️",
+    USDT: "💵",
+    ETH: "💎",
+    WETH: "🔷",
+  }
+  return iconMap[symbol] || "🪙"
+}
 
 export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanFormProps) {
   const [formData, setFormData] = useState<PlanFormData>(initialData)
@@ -38,22 +46,18 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
 
   const validateENS = async (input: string): Promise<{ address: string; ensName?: string; avatar?: string }> => {
     setIsValidating(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setIsValidating(false)
-
-    if (input.endsWith(".eth")) {
+    
+    try {
+      const resolved = await resolveENSOrAddress(input)
       return {
-        address: `0x${Math.random().toString(16).substr(2, 40)}`,
-        ensName: input,
-        avatar: `/placeholder.svg?height=32&width=32&query=avatar for ${input}`,
+        address: resolved.address,
+        ensName: resolved.ensName,
+        avatar: resolved.avatar || generateFallbackAvatar(resolved.address),
       }
-    } else if (input.startsWith("0x") && input.length === 42) {
-      return {
-        address: input,
-        avatar: `/placeholder.svg?height=32&width=32&query=identicon for ${input.slice(0, 6)}`,
-      }
-    } else {
-      throw new Error("Invalid ENS name or address")
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "Failed to resolve ENS or address")
+    } finally {
+      setIsValidating(false)
     }
   }
 
@@ -64,11 +68,10 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
       const participant = await validateENS(participantInput.trim())
 
       if (formData.participants.some((p) => p.address === participant.address)) {
-        console.log("[v0] Showing duplicate participant toast")
         toast({
           variant: "destructive",
-          title: "PARTICIPANT ALREADY ADDED",
-          description: "This participant is already in your savings plan.",
+          title: "👥 ALREADY IN PLAN",
+          description: "This participant is already part of your savings plan.",
         })
         return
       }
@@ -85,18 +88,58 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
       }))
       setParticipantInput("")
 
-      console.log("[v0] Showing success toast for participant")
       toast({
-        title: "PARTICIPANT ADDED",
-        description: `${participant.ensName || `${participant.address.slice(0, 6)}...${participant.address.slice(-4)}`} has been added to your plan.`,
+        title: "✅ PARTICIPANT ADDED",
+        description: `${participant.ensName || `${participant.address.slice(0, 6)}...${participant.address.slice(-4)}`} joined your savings plan!`,
+        duration: 3000, // Auto dismiss success toasts after 3 seconds
       })
     } catch (error) {
-      console.log("[v0] Showing error toast for invalid ENS:", error)
-      toast({
-        variant: "destructive",
-        title: "INVALID ENS OR ADDRESS",
-        description: "Please enter a valid ENS name (e.g., vitalik.eth) or Ethereum address (0x...).",
-      })
+      if (error instanceof ENSResolutionError) {
+        // Handle specific ENS resolution errors with tailored messages
+        switch (error.code) {
+          case 'INVALID_FORMAT':
+            toast({
+              variant: "destructive",
+              title: "🤔 INVALID FORMAT",
+              description: error.message,
+            })
+            break
+          case 'ENS_NOT_FOUND':
+            toast({
+              variant: "destructive",
+              title: "🔍 ENS NOT FOUND",
+              description: error.message,
+            })
+            break
+          case 'NETWORK_ERROR':
+            toast({
+              variant: "destructive",
+              title: "🌐 NETWORK ISSUE",
+              description: error.message,
+            })
+            break
+          case 'INVALID_ADDRESS':
+            toast({
+              variant: "destructive",
+              title: "❌ INVALID ADDRESS",
+              description: error.message,
+            })
+            break
+          default:
+            toast({
+              variant: "destructive",
+              title: "⚠️ RESOLUTION FAILED",
+              description: error.message,
+            })
+        }
+      } else {
+        // Fallback for any other errors
+        toast({
+          variant: "destructive",
+          title: "❌ UNEXPECTED ERROR",
+          description: "Something went wrong while adding the participant. Please try again.",
+        })
+      }
     }
   }
 
@@ -108,10 +151,19 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
   }
 
   const removeParticipant = (id: string) => {
+    const participant = formData.participants.find(p => p.id === id)
     setFormData((prev) => ({
       ...prev,
       participants: prev.participants.filter((p) => p.id !== id),
     }))
+    
+    if (participant) {
+      toast({
+        title: "🗑️ PARTICIPANT REMOVED",
+        description: `${participant.ensName || `${participant.address.slice(0, 6)}...${participant.address.slice(-4)}`} was removed from your plan.`,
+        duration: 3000, // Auto dismiss after 3 seconds
+      })
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -171,18 +223,28 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
 
               <div>
                 <Label htmlFor="stablecoin" className="text-sm font-medium text-foreground">
-                  Stablecoin
+                  Token
                 </Label>
                 <Select value={formData.stablecoin} onValueChange={(value) => handleInputChange("stablecoin", value)}>
                   <SelectTrigger className="mt-1 rounded-xl border-0 bg-input">
-                    <SelectValue />
+                    <SelectValue>
+                      {formData.stablecoin && (
+                        <div className="flex items-center gap-2">
+                          <span>{getTokenIcon(formData.stablecoin)}</span>
+                          <span>{formData.stablecoin}</span>
+                        </div>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {stablecoins.map((coin) => (
-                      <SelectItem key={coin.value} value={coin.value}>
+                    {SUPPORTED_TOKENS.map((token) => (
+                      <SelectItem key={token.symbol} value={token.symbol}>
                         <div className="flex items-center gap-2">
-                          <span>{coin.icon}</span>
-                          <span>{coin.label}</span>
+                          <span>{getTokenIcon(token.symbol)}</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{token.symbol}</span>
+                            <span className="text-xs text-muted-foreground">{token.name}</span>
+                          </div>
                         </div>
                       </SelectItem>
                     ))}
@@ -229,6 +291,9 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
               <Label htmlFor="participants" className="text-sm font-medium text-foreground">
                 Add Participant
               </Label>
+              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                Try: vitalik.eth, ens.eth, or any Ethereum address (0x...)
+              </p>
               <div className="flex gap-2 mt-1">
                 <Input
                   ref={inputRef}
@@ -245,13 +310,10 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
                   onClick={handleAddParticipant}
                   disabled={!participantInput.trim() || isValidating}
                   className="rounded-xl px-4"
+                  title={isValidating ? "Resolving ENS..." : "Add participant"}
                 >
                   {isValidating ? (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full"
-                    />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <Plus className="w-4 h-4" />
                   )}
@@ -272,9 +334,14 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
                       className="flex items-center gap-3 p-3 rounded-2xl bg-muted/50"
                     >
                       <img
-                        src={participant.avatar || "/placeholder.svg"}
+                        src={participant.avatar}
                         alt={participant.ensName || participant.address}
-                        className="w-8 h-8 rounded-full"
+                        className="w-8 h-8 rounded-full object-cover"
+                        onError={(e) => {
+                          // Fallback to generated avatar if image fails to load
+                          const target = e.target as HTMLImageElement
+                          target.src = generateFallbackAvatar(participant.address)
+                        }}
                       />
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">

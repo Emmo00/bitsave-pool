@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ensdomains/ensjs": "^4.0.2",
     "@farcaster/miniapp-sdk": "^0.1.9",
     "@farcaster/miniapp-wagmi-connector": "^1.0.0",
     "@radix-ui/react-label": "^2.1.7",
@@ -30,7 +31,7 @@
     "react-router-dom": "^7.8.2",
     "tailwind-merge": "3.3.1",
     "tailwindcss-animate": "1.0.7",
-    "viem": "latest",
+    "viem": "^2.37.3",
     "wagmi": "latest"
   },
   "devDependencies": {

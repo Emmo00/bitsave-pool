@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { routes } from "./routes";
+import { Toaster } from "@/components/ui/toaster";
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
           <Route key={path} path={path} element={<Component />} />
         ))}
       </Routes>
+      <Toaster />
     </Router>
   );
 }

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Check, X, Calendar, Target, Users, Coins } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { SUPPORTED_TOKENS } from "@/contracts/config"
 import type { PlanFormData } from "./create-savings-flow"
 
 interface ConfirmationModalProps {
@@ -17,6 +18,9 @@ interface ConfirmationModalProps {
 export function ConfirmationModal({ isOpen, onClose, onConfirm, planData }: ConfirmationModalProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+
+  // Get the token info from supported tokens
+  const selectedToken = SUPPORTED_TOKENS.find(token => token.symbol === planData.stablecoin)
 
   const handleConfirm = async () => {
     setIsCreating(true)
@@ -78,7 +82,9 @@ export function ConfirmationModal({ isOpen, onClose, onConfirm, planData }: Conf
                         <p className="font-semibold text-foreground">
                           ${Number.parseInt(planData.targetAmount || "0").toLocaleString()} {planData.stablecoin}
                         </p>
-                        <p className="text-sm text-muted-foreground">Target Amount</p>
+                        <p className="text-sm text-muted-foreground">
+                          Target Amount {selectedToken ? `(${selectedToken.name})` : ''}
+                        </p>
                       </div>
                     </div>
 

@@ -3,9 +3,11 @@ import { Target, Users, Clock, TrendingUp } from "lucide-react";
 import { useUserSavingsData } from "@/contexts/SavingsContext";
 import { useAccount } from "wagmi";
 import { formatDistanceToNow } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 export function PlansList() {
   const { isConnected } = useAccount();
+  const navigate = useNavigate();
   const { plans, isLoading, error } = useUserSavingsData();
 
   if (!isConnected) {
@@ -61,7 +63,10 @@ export function PlansList() {
         <div className="text-center py-8">
           <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground mb-4">No savings plans yet</p>
-          <button className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-semibold brutalist-button hover:scale-105 transition-transform">
+          <button
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-semibold brutalist-button hover:scale-105 transition-transform"
+            onClick={() => navigate("/create")}
+          >
             Create Your First Plan
           </button>
         </div>
@@ -87,24 +92,24 @@ export function PlansList() {
                   Savings Plan #{plan.id.toString()}
                 </h4>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    plan.active && !plan.isExpired
-                      ? "bg-green-500/20 text-green-400"
-                      : plan.progressPercentage >= 100
-                      ? "bg-blue-500/20 text-blue-400"
-                      : "bg-gray-500/20 text-gray-400"
-                  }`}>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      plan.active && !plan.isExpired
+                        ? "bg-green-500/20 text-green-400"
+                        : plan.progressPercentage >= 100
+                          ? "bg-blue-500/20 text-blue-400"
+                          : "bg-gray-500/20 text-gray-400"
+                    }`}
+                  >
                     {plan.active && !plan.isExpired
                       ? "Active"
                       : plan.progressPercentage >= 100
-                      ? "Completed"
-                      : plan.isExpired
-                      ? "Expired"
-                      : "Inactive"}
+                        ? "Completed"
+                        : plan.isExpired
+                          ? "Expired"
+                          : "Inactive"}
                   </span>
-                  <span className="text-sm text-muted-foreground">
-                    {plan.tokenSymbol}
-                  </span>
+                  <span className="text-sm text-muted-foreground">{plan.tokenSymbol}</span>
                 </div>
               </div>
               <div className="text-right">
@@ -134,7 +139,7 @@ export function PlansList() {
                   <p className="font-semibold">{plan.formattedTarget}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-green-400" />
                 <div>
@@ -158,10 +163,11 @@ export function PlansList() {
                     {plan.isExpired ? "Expired" : "Time Left"}
                   </p>
                   <p className="font-semibold">
-                    {plan.isExpired 
-                      ? formatDistanceToNow(new Date(Number(plan.deadline) * 1000), { addSuffix: true })
-                      : `${plan.daysRemaining} days`
-                    }
+                    {plan.isExpired
+                      ? formatDistanceToNow(new Date(Number(plan.deadline) * 1000), {
+                          addSuffix: true,
+                        })
+                      : `${plan.daysRemaining} days`}
                   </p>
                 </div>
               </div>

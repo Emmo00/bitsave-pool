@@ -1,40 +1,63 @@
 "use client"
 
-import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, AlertTriangle, Check } from "lucide-react"
+import { X, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { getContractAddress, ABIS } from "@/contracts/config"
+import { baseSepolia } from "wagmi/chains"
+import { useToast } from "@/hooks/use-toast"
 
 interface CancelModalProps {
   isOpen: boolean
   onClose: () => void
-  plan: any
+  plan: {
+    id: string
+    name: string
+  }
+  onSuccess?: () => void
 }
 
-export function CancelModal({ isOpen, onClose, plan }: CancelModalProps) {
-  const [isCancelling, setIsCancelling] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
+export function CancelModal({ isOpen, onClose, plan, onSuccess }: CancelModalProps) {
+  const { toast } = useToast()
+
+  const { writeContract, data: txHash, isPending } = useWriteContract()
+  
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({
+    hash: txHash,
+  })
 
   const handleCancel = async () => {
-    setIsCancelling(true)
+    const contractAddress = getContractAddress(baseSepolia.id, 'BITSAVE_POOLS')
+    
+    try {
+      writeContract({
+        address: contractAddress,
+        abi: ABIS.BITSAVE_POOLS,
+        functionName: 'cancelPlan',
+        args: [BigInt(plan.id)],
+      })
 
-    // Simulate cancellation process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+      toast({
+        title: "Transaction Submitted",
+        description: "Cancelling the savings plan...",
+      })
 
-    setIsCancelling(false)
-    setIsSuccess(true)
-
-    // Close modal after success
-    setTimeout(() => {
-      setIsSuccess(false)
       onClose()
-    }, 2000)
+      onSuccess?.()
+    } catch (error) {
+      console.error('Failed to cancel plan:', error)
+      toast({
+        title: "Transaction Failed",
+        description: "Failed to cancel the plan. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleClose = () => {
-    if (!isCancelling) {
-      setIsSuccess(false)
+    if (!isPending && !isConfirming) {
       onClose()
     }
   }
@@ -50,109 +73,75 @@ export function CancelModal({ isOpen, onClose, plan }: CancelModalProps) {
           onClick={handleClose}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            transition={{ type: "spring", duration: 0.5 }}
-            onClick={(e) => e.stopPropagation()}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
             className="w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Card className="liquid-glass rounded-3xl p-6 border border-red-500/20 glow-destructive">
-              {!isSuccess ? (
-                <>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-foreground">Cancel Plan</h2>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClose}
-                      className="p-1 h-auto"
-                      disabled={isCancelling}
-                    >
-                      <X className="w-5 h-5" />
-                    </Button>
+            <Card className="neomorphic rounded-3xl p-6 border-0">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-destructive/10 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-destructive" />
                   </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Cancel Plan</h3>
+                    <p className="text-sm text-muted-foreground">This action cannot be undone</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="p-2 rounded-xl"
+                  disabled={isPending || isConfirming}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
 
-                  <div className="space-y-4 mb-6">
-                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
-                      <AlertTriangle className="w-5 h-5 text-red-600" />
-                      <div>
-                        <p className="text-sm font-medium text-red-700">Warning</p>
-                        <p className="text-xs text-red-600">This action cannot be undone.</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex justify-between p-3 rounded-xl bg-white/10">
-                        <span className="text-muted-foreground">Plan:</span>
-                        <span className="font-medium text-foreground">{plan.name}</span>
-                      </div>
-                      <div className="flex justify-between p-3 rounded-xl bg-white/10">
-                        <span className="text-muted-foreground">Current Amount:</span>
-                        <span className="font-medium text-foreground">
-                          ${plan.current.toLocaleString()} {plan.token}
-                        </span>
-                      </div>
-                      <div className="flex justify-between p-3 rounded-xl bg-white/10">
-                        <span className="text-muted-foreground">Participants:</span>
-                        <span className="font-medium text-foreground">{plan.participants}</span>
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
-                      <p className="text-sm text-red-700">
-                        Cancelling this plan will refund all participants their contributions and permanently close the
-                        savings plan.
+              <div className="space-y-4">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">
+                        Warning: This will cancel {plan.name}
+                      </p>
+                      <p className="text-sm text-red-700 mt-1">
+                        All participants will be able to withdraw their contributions, but the plan will be permanently cancelled.
                       </p>
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <Button
-                      onClick={handleCancel}
-                      disabled={isCancelling}
-                      className="w-full h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-semibold"
-                    >
-                      {isCancelling ? (
-                        <div className="flex items-center gap-2">
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                          />
-                          <span>Cancelling Plan...</span>
-                        </div>
-                      ) : (
-                        <>
-                          <AlertTriangle className="w-4 h-4 mr-2" />
-                          Yes, Cancel Plan
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleClose}
-                      disabled={isCancelling}
-                      className="w-full h-12 rounded-2xl border-white/20 text-foreground hover:bg-white/10 bg-transparent"
-                    >
-                      Keep Plan Active
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", duration: 0.6 }}
-                    className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4"
-                  >
-                    <Check className="w-8 h-8 text-white" />
-                  </motion.div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">Plan Cancelled</h3>
-                  <p className="text-muted-foreground">All participants have been refunded their contributions.</p>
                 </div>
-              )}
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleClose}
+                    className="flex-1 h-12 rounded-2xl"
+                    disabled={isPending || isConfirming}
+                  >
+                    Keep Plan
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    variant="destructive"
+                    className="flex-1 h-12 rounded-2xl"
+                    disabled={isPending || isConfirming}
+                  >
+                    {isPending || isConfirming ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Cancelling...
+                      </>
+                    ) : (
+                      "Cancel Plan"
+                    )}
+                  </Button>
+                </div>
+              </div>
             </Card>
           </motion.div>
         </motion.div>

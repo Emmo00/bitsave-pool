@@ -9,6 +9,7 @@ export const CONTRACT_ADDRESSES = {
     BITSAVE_POOLS: "0xbc9987159307d00844944221Ad2924B736Ab785e" as Address,
     // Common tokens on Base Sepolia
     USDC: "0xB9b65AD5B47C185D729161b1D25083bD1382D2BC" as Address, // Base Sepolia USDC
+    // Add more tokens as they become available on Base Sepolia
   },
 } as const;
 
@@ -35,7 +36,8 @@ export const SUPPORTED_TOKENS = [
     decimals: 6,
     address: CONTRACT_ADDRESSES[baseSepolia.id].USDC,
   },
-  // Add more tokens as needed
+  // Note: Add more tokens here as they become available on Base Sepolia
+  // For demo purposes, you can add mainnet tokens if testing with other networks
 ] as const;
 
 export type SupportedToken = typeof SUPPORTED_TOKENS[number];

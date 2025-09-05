@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { HeroSection } from "./hero-section";
 import { PreviewCards } from "./preview-cards";
 import { BottomNavigation } from "./bottom-navigation";
-import { SavingsStats } from "./savings-stats";
 import { PlansList } from "./plans-list";
 
 export function Dashboard() {
@@ -28,9 +27,6 @@ export function Dashboard() {
         className="pb-20 px-4"
       >
         <HeroSection />
-        
-        {/* Smart Contract Integration - Savings Stats */}
-        <SavingsStats />
         
         {/* Smart Contract Integration - Plans List */}
         <PlansList />

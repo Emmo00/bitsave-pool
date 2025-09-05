@@ -55,9 +55,17 @@ export function useUserPlans() {
 
   const plans: UserPlanSummary[] = useMemo(() => {
     if (!plansData || !planIds || !myContributions) return [];
-    return (plansData as any[]).map((planData, i) => {
-      if (!planData?.result) return null;
+    
+    // Create a map to deduplicate plans by ID
+    const planMap = new Map<number, UserPlanSummary>();
+    
+    (plansData as any[]).forEach((planData, i) => {
+      if (!planData?.result) return;
       const id = Number((planData.result as any)[0]);
+      
+      // Skip if we already have this plan
+      if (planMap.has(id)) return;
+      
       const owner = (planData.result as any)[1] as Address;
       const beneficiary = (planData.result as any)[2] as Address;
       const token = (planData.result as any)[3] as Address;
@@ -70,7 +78,8 @@ export function useUserPlans() {
       // participants not available here, would need extra call if needed
       const myContribution = myContributions[i]?.result as bigint || 0n;
       const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === token.toLowerCase());
-      return {
+      
+      planMap.set(id, {
         id,
         owner,
         beneficiary,
@@ -84,8 +93,10 @@ export function useUserPlans() {
         participants: [],
         myContribution,
         formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : '0',
-      };
-    }).filter(Boolean) as UserPlanSummary[];
+      });
+    });
+    
+    return Array.from(planMap.values());
   }, [plansData, planIds, myContributions]);
 
   return {

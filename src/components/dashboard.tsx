@@ -28,9 +28,6 @@ export function Dashboard() {
       >
         <HeroSection />
         
-        {/* Smart Contract Integration - Plans List */}
-        <PlansList />
-        
         {/* Keep the existing preview cards for other features */}
         <div className="mt-8">
           <PreviewCards />

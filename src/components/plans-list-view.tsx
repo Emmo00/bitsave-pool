@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Card } from "@/components/ui/card"
@@ -8,111 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Users, Calendar, Target, TrendingUp } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { useUserPlans } from "@/hooks/use-user-plans"
+import { SUPPORTED_TOKENS } from "@/contracts/config"
 
-const mockPlansOwned = [
-  {
-    id: 1,
-    name: "Emergency Fund",
-    token: "USDC",
-    target: 10000,
-    current: 7500,
-    participants: 3,
-    deadline: "2024-12-31",
-    status: "active",
-    myContribution: 2500,
-  },
-  {
-    id: 2,
-    name: "Vacation Fund",
-    token: "DAI",
-    target: 5000,
-    current: 2800,
-    participants: 2,
-    deadline: "2024-08-15",
-    status: "active",
-    myContribution: 1400,
-  },
-  {
-    id: 3,
-    name: "New Car Fund",
-    token: "USDT",
-    target: 25000,
-    current: 12000,
-    participants: 4,
-    deadline: "2025-06-01",
-    status: "active",
-    myContribution: 3000,
-  },
-  {
-    id: 4,
-    name: "Gaming Setup",
-    token: "USDC",
-    target: 3000,
-    current: 3000,
-    participants: 1,
-    deadline: "2024-03-15",
-    status: "completed",
-    myContribution: 3000,
-  },
-  {
-    id: 5,
-    name: "Investment Portfolio",
-    token: "DAI",
-    target: 50000,
-    current: 18500,
-    participants: 5,
-    deadline: "2025-12-31",
-    status: "active",
-    myContribution: 5000,
-  },
-]
-
-const mockPlansJoined = [
-  {
-    id: 6,
-    name: "House Down Payment",
-    token: "USDC",
-    target: 50000,
-    current: 32000,
-    participants: 6,
-    deadline: "2025-03-15",
-    status: "active",
-    myContribution: 8000,
-  },
-  {
-    id: 7,
-    name: "Wedding Fund",
-    token: "DAI",
-    target: 15000,
-    current: 9500,
-    participants: 2,
-    deadline: "2024-10-20",
-    status: "active",
-    myContribution: 4750,
-  },
-  {
-    id: 8,
-    name: "Startup Capital",
-    token: "USDT",
-    target: 100000,
-    current: 45000,
-    participants: 8,
-    deadline: "2025-08-01",
-    status: "active",
-    myContribution: 12000,
-  },
-  {
-    id: 9,
-    name: "Family Vacation",
-    token: "USDC",
-    target: 8000,
-    current: 8000,
-    participants: 4,
-    deadline: "2024-01-15",
-    status: "completed",
-    myContribution: 2000,
-  },
-]
 
 interface PlansListViewProps {
   type?: "owned" | "joined" | "all"
@@ -123,6 +22,9 @@ export function PlansListView({ type = "all" }: PlansListViewProps) {
   const [activeTab, setActiveTab] = useState<"owned" | "joined">(type === "joined" ? "joined" : "owned")
   const navigate = useNavigate()
 
+  // Call hooks before any conditional returns
+  const { plans, loading, address } = useUserPlans();
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -130,10 +32,12 @@ export function PlansListView({ type = "all" }: PlansListViewProps) {
   if (!mounted) {
     return null
   }
-
-  const plans = activeTab === "owned" ? mockPlansOwned : mockPlansJoined
-  const activePlans = plans.filter((plan) => plan.status === "active")
-  const completedPlans = plans.filter((plan) => plan.status === "completed")
+  // "owned" = user is owner, "joined" = user is participant but not owner
+  const ownedPlans = plans.filter((plan) => plan.owner.toLowerCase() === address?.toLowerCase());
+  const joinedPlans = plans.filter((plan) => plan.owner.toLowerCase() !== address?.toLowerCase());
+  const plansToShow = activeTab === "owned" ? ownedPlans : joinedPlans;
+  const activePlans = plansToShow.filter((plan) => plan.active && !plan.cancelled && !plan.withdrawn);
+  const completedPlans = plansToShow.filter((plan) => !plan.active || plan.cancelled || plan.withdrawn);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -229,7 +133,7 @@ export function PlansListView({ type = "all" }: PlansListViewProps) {
           </motion.div>
         )}
 
-        {plans.length === 0 && (
+  {plansToShow.length === 0 && !loading && (
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -255,10 +159,17 @@ export function PlansListView({ type = "all" }: PlansListViewProps) {
 
 
 function EnhancedPlanCard({ plan }: { plan: any }) {
-  const progress = (plan.current / plan.target) * 100
-  const isCompleted = plan.status === "completed"
-  const daysLeft = Math.ceil((new Date(plan.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  // Progress: deposited / target
+  const progress = plan.target && plan.target > 0n ? Number(plan.deposited) / Number(plan.target) * 100 : 0;
+  const isCompleted = !plan.active || plan.cancelled || plan.withdrawn;
+  // Deadline is a bigint (seconds), convert to ms
+  const deadlineDate = plan.deadline ? new Date(Number(plan.deadline) * 1000) : null;
+  const now = new Date();
+  const daysLeft = deadlineDate ? Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  // Token symbol
+  const tokenInfo = plan.token && plan.token.length === 42 ? SUPPORTED_TOKENS.find((t: any) => t.address.toLowerCase() === plan.token.toLowerCase()) : undefined;
+  const tokenSymbol = tokenInfo ? tokenInfo.symbol : plan.token?.slice(0, 6) + '...';
 
   return (
     <motion.div whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }} transition={{ duration: 0.2 }}>
@@ -267,7 +178,7 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-foreground text-balance">{plan.name}</h3>
+              <h3 className="font-bold text-foreground text-balance">Plan #{plan.id}</h3>
               <Badge
                 variant={isCompleted ? "default" : "secondary"}
                 className={`text-xs ${isCompleted ? "bg-green-600 text-white" : "bg-primary text-primary-foreground"}`}
@@ -275,11 +186,11 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
                 {isCompleted ? "Completed" : "Active"}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{plan.token}</p>
+            <p className="text-sm text-muted-foreground">{tokenSymbol}</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-foreground">${plan.current.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">of ${plan.target.toLocaleString()}</p>
+            <p className="text-lg font-bold text-foreground">{tokenInfo ? tokenInfo.symbol : ''} {plan.deposited ? Number(plan.deposited) / (tokenInfo ? 10 ** tokenInfo.decimals : 1) : 0}</p>
+            <p className="text-xs text-muted-foreground">of {tokenInfo ? tokenInfo.symbol : ''} {plan.target ? Number(plan.target) / (tokenInfo ? 10 ** tokenInfo.decimals : 1) : 0}</p>
           </div>
         </div>
 
@@ -301,7 +212,7 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
               <Users className="w-3 h-3" />
               <span className="text-xs">Participants</span>
             </div>
-            <p className="font-semibold text-foreground">{plan.participants}</p>
+            <p className="font-semibold text-foreground">{plan.participants?.length ?? '-'}</p>
           </div>
 
           <div className="text-center">
@@ -309,7 +220,7 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
               <TrendingUp className="w-3 h-3" />
               <span className="text-xs">My Share</span>
             </div>
-            <p className="font-semibold text-foreground">${plan.myContribution.toLocaleString()}</p>
+            <p className="font-semibold text-foreground">{plan.formattedContribution}</p>
           </div>
 
           <div className="text-center">
@@ -336,5 +247,5 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
         </Button>
       </Card>
     </motion.div>
-  )
+  );
 }

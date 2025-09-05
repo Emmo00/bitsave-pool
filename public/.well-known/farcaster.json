@@ -1,1 +1,23 @@
-{}
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjg5MTM2MSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDIxRDE3N0ZmNzkzYkI4OGYyODAwZTlEYjFEMDVERDI3MzA0NkEzMzgifQ",
+    "payload": "eyJkb21haW4iOiJzdi1xdWl6LW1pbmlhcHAtY2Vsby04NGd0LnZlcmNlbC5hcHAifQ",
+    "signature": "MHg4NjY5N2FlMzliYjFkMjQ1NDZmMzM3YTkwOGI1OTc2MWI0ODZlNDlmYjA0MmJjOTE3ZjI4YmM3YTQ3NjM1ZTEzMTIxZDNkNTYxNjUwMzZlODk4MzAyMTEyNmUwNTIzNzFiM2M3Yzc0ZDg4MzI3ZTU4Y2E0MzExNGJkMTMwNTIzNzFi"
+  },
+  "frame": {
+    "version": "1",
+    "name": "Bitsave Pool",
+    "subTitle": "Save with your friends!",
+    "description": "Use Bitsave Pool to save with your friends and earn rewards together. Create a pool, invite your friends, and start saving towards your goals!",
+    "homeUrl": "https://bitsave-pool.vercel.app",
+    "iconUrl": "https://bitsave-pool.vercel.app/bitsave-pool-icon.png",
+    "imageUrl": "https://bitsave-pool.vercel.app/bitsave-pool-image.png",
+    "tags": ["save", "social"],
+    "requiredChains": ["eip155:8453", "eip155:84532"],
+    "requiredCapabilities": [
+      "actions.ready",
+      "wallet.getEthereumProvider",
+      "actions.composeCast"
+    ]
+  }
+}

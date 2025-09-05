@@ -57,6 +57,13 @@ function PlanDataFetcher({
 
   // Function to get token info
   const getTokenInfo = (tokenAddress: Address) => {
+    if (!tokenAddress) {
+      return {
+        symbol: "Unknown",
+        decimals: 18,
+      };
+    }
+    
     const token = SUPPORTED_TOKENS.find(
       (t) => t.address.toLowerCase() === tokenAddress.toLowerCase()
     );
@@ -71,6 +78,8 @@ function PlanDataFetcher({
     if (!planData) return null;
 
     const plan = planData as SavingsPlan;
+    if (!plan.token) return null; // Add null check for token
+    
     const tokenInfo = getTokenInfo(plan.token);
     const progressPercentage = plan.target > 0n ? Number((plan.deposited * 100n) / plan.target) : 0;
     const now = Date.now() / 1000;

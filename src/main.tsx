@@ -5,6 +5,7 @@ import { WagmiProvider } from "wagmi";
 
 import App from "./App.tsx";
 import { config } from "./wagmi.ts";
+import { SavingsProvider } from "./contexts/SavingsContext.tsx";
 
 import "./index.css";
 
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <SavingsProvider>
+          <App />
+        </SavingsProvider>
       </QueryClientProvider>
     </WagmiProvider>
   </React.StrictMode>,

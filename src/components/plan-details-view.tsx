@@ -341,7 +341,8 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   const progress = (plan.current / plan.target) * 100;
   const isOwner = plan.owner === plan.currentUser;
-  const isCompleted = plan.status === "completed";
+  const isCompleted = progress >= 100; // Based on progress instead of status
+  const isCancelled = false; // No cancelled plans in mock data
   const canWithdraw = isOwner && progress >= 100;
   const daysLeft = Math.ceil(
     (new Date(plan.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
@@ -364,17 +365,17 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             <h1 className="text-lg font-bold text-foreground text-balance">{plan.name}</h1>
             <Badge
               variant={
-                isCompleted ? "default" : plan.status === "cancelled" ? "destructive" : "secondary"
+                isCompleted ? "default" : isCancelled ? "destructive" : "secondary"
               }
               className={`text-xs mt-1 ${
                 isCompleted
                   ? "bg-green-100 text-green-800"
-                  : plan.status === "cancelled"
+                  : isCancelled
                     ? "bg-red-100 text-red-800"
                     : "bg-primary/10 text-primary"
               }`}
             >
-              {plan.status.charAt(0).toUpperCase() + plan.status.slice(1)}
+              {isCompleted ? "Completed" : "Active"}
             </Badge>
           </div>
           <div className="w-9" /> {/* Spacer */}

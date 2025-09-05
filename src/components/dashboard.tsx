@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { HeroSection } from "./hero-section";
 import { PreviewCards } from "./preview-cards";
 import { BottomNavigation } from "./bottom-navigation";
+import { SavingsStats } from "./savings-stats";
+import { PlansList } from "./plans-list";
 
 export function Dashboard() {
   const [mounted, setMounted] = useState(false);
@@ -23,10 +25,20 @@ export function Dashboard() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="pb-20"
+        className="pb-20 px-4"
       >
         <HeroSection />
-        <PreviewCards />
+        
+        {/* Smart Contract Integration - Savings Stats */}
+        <SavingsStats />
+        
+        {/* Smart Contract Integration - Plans List */}
+        <PlansList />
+        
+        {/* Keep the existing preview cards for other features */}
+        <div className="mt-8">
+          <PreviewCards />
+        </div>
       </motion.div>
       <BottomNavigation />
     </div>

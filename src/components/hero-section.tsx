@@ -2,8 +2,29 @@
 
 import { motion } from "framer-motion"
 import { Card } from "@/components/ui/card"
+import { useUserSavingsData, EnhancedSavingsPlan } from "@/contexts/SavingsContext"
+import { formatUnits } from "viem"
 
 export function HeroSection() {
+  const userSavings = useUserSavingsData();
+
+  // Calculate total amount saved across all plans
+  const totalSaved = userSavings.plans.reduce((total: number, plan: EnhancedSavingsPlan) => {
+    return total + Number(formatUnits(plan.deposited, plan.tokenDecimals))
+  }, 0)
+
+  // Format total as currency
+  const formattedTotal = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(totalSaved)
+
+  // Show loading state if no data yet
+  const isLoading = userSavings.isLoading
+  const displayTotal = isLoading ? "Loading..." : formattedTotal
+  const displayActivePlans = isLoading ? "..." : userSavings.activePlans
+
   return (
     <div className="px-4 pt-8 pb-6">
       <motion.div
@@ -23,7 +44,7 @@ export function HeroSection() {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.4 }}
       >
-        <Card className="brutalist-card p-6 mx-4 bg-white">
+        <Card className="brutalist-card p-6 bg-white">
           <div className="text-center">
             <p className="text-sm text-muted-foreground mb-2 font-bold uppercase tracking-wide">
               TOTAL AMOUNT LOCKED IN SAVINGS
@@ -38,7 +59,7 @@ export function HeroSection() {
                 stiffness: 100,
               }}
             >
-              <h2 className="text-5xl font-black text-primary mb-1">$127,450.32</h2>
+              <h2 className="text-5xl font-black text-primary mb-1">{displayTotal}</h2>
             </motion.div>
             <div className="flex items-center justify-center gap-2 text-sm">
               <motion.div
@@ -49,7 +70,7 @@ export function HeroSection() {
               />
             </div>
             <p className="text-xs text-muted-foreground mt-2 font-bold uppercase tracking-wide">
-              ACROSS 24 ACTIVE SAVINGS PLANS
+              ACROSS {displayActivePlans} ACTIVE SAVINGS PLANS
             </p>
           </div>
         </Card>

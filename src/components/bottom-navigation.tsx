@@ -24,7 +24,7 @@ export function BottomNavigation() {
     >
       <div className="flex items-center justify-center py-2 px-4 max-w-md mx-auto">
         <div className="flex items-center justify-between w-full max-w-xs">
-          {navItems.map((item, index) => {
+          {navItems.map((item) => {
             const isActive =
               pathname === item.path || (item.path === "/plans" && pathname.startsWith("/plans"));
 

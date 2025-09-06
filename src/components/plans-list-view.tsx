@@ -171,10 +171,7 @@ export function PlansListView({ type = "all" }: PlansListViewProps) {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <h2 className="text-lg font-semibold text-foreground mb-4">
-              {activeTab === "owned" ? "Plans I Own" : activeTab === "joined" ? "Plans I Joined" : "Completed Plans"}
-            </h2>
-            <div className="grid gap-4">
+            <div className="grid gap-4 mt-2">
               {currentPlans.map((plan, index) => (
                 <motion.div
                   key={plan.id}

@@ -266,7 +266,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   // Create plan object in expected format for modals
   const planForModals = {
     id: planId,
-    name: `Plan #${planId}`, // In real app, this would come from plan creation event or metadata
+    name: plan?.name || `Savings Plan #${planId}`,
     token: tokenInfo.symbol,
     target: targetAmount,
     current: currentAmount,

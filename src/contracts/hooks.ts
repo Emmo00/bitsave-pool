@@ -5,6 +5,7 @@ import { ABIS, getContractAddress } from "./config";
 // Plan interface based on the smart contract
 export interface SavingsPlan {
   id: bigint;
+  name: string;
   owner: Address;
   beneficiary: Address;
   token: Address;

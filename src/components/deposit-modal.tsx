@@ -9,7 +9,6 @@ import { useAccount } from "wagmi"
 import { Address } from "viem"
 import { useBitSaveContracts, useTokenBalance, useTokenAllowance, formatTokenAmount } from "@/contracts/hooks"
 import { SUPPORTED_TOKENS } from "@/contracts/config"
-import { useChainId } from "wagmi"
 import { useToast } from "@/hooks/use-toast"
 
 interface DepositModalProps {
@@ -57,11 +56,11 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   const { data: tokenAllowance, refetch: refetchAllowance } = useTokenAllowance(tokenInfo.address, userAddress)
   
   // Format balances
-  const formattedBalance = tokenBalance 
+  const formattedBalance = tokenBalance && typeof tokenBalance === 'bigint'
     ? formatTokenAmount(tokenBalance, tokenInfo.decimals)
     : "0"
   
-  const formattedAllowance = tokenAllowance 
+  const formattedAllowance = tokenAllowance && typeof tokenAllowance === 'bigint'
     ? formatTokenAmount(tokenAllowance, tokenInfo.decimals)
     : "0"
 
@@ -157,14 +156,17 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   const isProcessing = isPending || isConfirming
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Deposit to Plan</DialogTitle>
-          <DialogDescription>
-            Add funds to your {tokenInfo.symbol} savings plan
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-background rounded-lg shadow-lg">
+            <div className="p-6">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Deposit to Plan</h2>
+                <p className="text-sm text-muted-foreground">
+                  Add funds to your {tokenInfo.symbol} savings plan
+                </p>
+              </div>
 
         {currentStep === DepositStep.FORM ? (
           <div className="space-y-4">
@@ -242,12 +244,11 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
           <div className="space-y-6">
             <div className="flex justify-center">
               <div className="flex space-x-4">
-                {depositSteps.map((step, index) => {
+                {depositSteps.map((step) => {
                   const StepIcon = step.icon
                   const isActive = currentStep === step.key
                   const isCompleted = 
-                    (step.key === DepositStep.APPROVE && currentStep === DepositStep.DEPOSIT) ||
-                    currentStep === DepositStep.SUCCESS
+                    (step.key === DepositStep.APPROVE && currentStep === DepositStep.DEPOSIT)
 
                   return (
                     <div key={step.key} className="flex flex-col items-center space-y-2">
@@ -298,7 +299,10 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

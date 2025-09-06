@@ -30,6 +30,15 @@ export function usePlan(planId: number) {
   });
 }
 
+// Hook to get the next plan ID (useful for checking if plans exist)
+export function useNextPlanId() {
+  return useReadContract({
+    address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+    abi: ABIS.BITSAVE_POOLS,
+    functionName: "nextPlanId",
+  });
+}
+
 // Hook to get user's plans
 export function useUserPlans(userAddress?: Address) {
   return useReadContract({

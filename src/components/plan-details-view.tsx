@@ -15,6 +15,7 @@ import { CancelModal } from "./cancel-modal";
 import { 
   usePlan, 
   usePlanParticipants, 
+  useNextPlanId,
   formatTokenAmount,
   type SavingsPlan 
 } from "@/contracts/hooks";
@@ -56,18 +57,43 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const navigate = useNavigate();
   const { address: userAddress } = useAccount();
 
+  // Validate planId
+  const numericPlanId = parseInt(planId);
+  
+  // Handle invalid plan ID
+  if (isNaN(numericPlanId) || numericPlanId < 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-foreground mb-2">Invalid Plan ID</h2>
+          <p className="text-muted-foreground mb-4">
+            The plan ID "{planId}" is not valid. Plan IDs must be positive numbers.
+          </p>
+          <div className="space-y-2">
+            <Button onClick={() => navigate(-1)}>Go Back</Button>
+            <Button variant="outline" onClick={() => navigate("/plans")}>
+              View All Plans
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Fetch onchain data
-  const { data: planData, isLoading: planLoading, error: planError } = usePlan(parseInt(planId));
-  const { data: participantsData } = usePlanParticipants(parseInt(planId));
+  const { data: planData, isLoading: planLoading, error: planError } = usePlan(numericPlanId);
+  const { data: participantsData } = usePlanParticipants(numericPlanId);
+  const { data: nextPlanId } = useNextPlanId();
 
   // Debug logging
   console.log('Plan Details Debug:', {
     planId,
-    parsedPlanId: parseInt(planId),
+    numericPlanId,
     planData,
     planLoading,
     planError,
-    participantsData
+    participantsData,
+    nextPlanId
   });
 
   // Type assertion for participants data - it should be an array of addresses
@@ -147,18 +173,35 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   // Error state
   if (planError || !planData) {
-    console.error('Plan error details:', { planError, planData, planId });
+    console.error('Plan error details:', { 
+      planError, 
+      planData, 
+      planId,
+      numericPlanId,
+      nextPlanId,
+      errorMessage: planError?.message,
+      errorCause: planError?.cause
+    });
+    
+    // Check if plan ID is valid based on nextPlanId
+    const maxValidPlanId = nextPlanId ? Number(nextPlanId) - 1 : 0;
+    const isPlanIdOutOfRange = nextPlanId && numericPlanId >= Number(nextPlanId);
     
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md mx-auto px-4">
           <h2 className="text-xl font-bold text-foreground mb-2">
             {planError ? "Error loading plan" : "Plan not found"}
           </h2>
           <p className="text-muted-foreground mb-4">
             {planError 
-              ? `Error: ${planError.message || "Please try again later."}` 
-              : `Plan ID ${planId} could not be found. It may not exist or may have been removed.`
+              ? `Error: ${planError.message || "Unable to connect to smart contract. Please check your wallet connection and network."}`
+              : isPlanIdOutOfRange
+                ? `Plan ID ${numericPlanId} doesn't exist. The highest plan ID is ${maxValidPlanId}. ${maxValidPlanId === 0 ? "No plans have been created yet." : ""}`
+                : `Plan ID ${numericPlanId} could not be found. This could mean:
+                   • The plan doesn't exist
+                   • The plan was created on a different network  
+                   • You're not connected to the right network (Base Sepolia)`
             }
           </p>
           <div className="space-y-2">
@@ -166,7 +209,30 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             <Button variant="outline" onClick={() => navigate("/plans")}>
               View All Plans
             </Button>
+            {maxValidPlanId > 0 && (
+              <Button variant="outline" onClick={() => navigate(`/plans/${maxValidPlanId}`)}>
+                View Latest Plan (#{maxValidPlanId})
+              </Button>
+            )}
           </div>
+          
+          {/* Debug info in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <details className="mt-4 text-left text-xs text-muted-foreground">
+              <summary className="cursor-pointer">Debug Info</summary>
+              <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto">
+                {JSON.stringify({ 
+                  planId, 
+                  numericPlanId, 
+                  nextPlanId: Number(nextPlanId), 
+                  maxValidPlanId,
+                  isPlanIdOutOfRange,
+                  planError, 
+                  planData 
+                }, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
       </div>
     );

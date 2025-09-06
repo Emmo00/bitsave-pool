@@ -7,10 +7,12 @@
   "frame": {
     "version": "1",
     "name": "Bitsave Pool",
+    "buttonTitle": "Save Now!",
     "subTitle": "Save with your friends!",
     "description": "Use Bitsave Pool to save with your friends and earn rewards together. Create a pool, invite your friends, and start saving towards your goals!",
     "homeUrl": "https://bitsave-pool.vercel.app",
     "iconUrl": "https://bitsave-pool.vercel.app/bitsave-pool-icon.png",
+    "splashImageUrl": "https://bitsave-pool.vercel.app/bitsave-pool-icon.png",
     "imageUrl": "https://bitsave-pool.vercel.app/bitsave-pool-image.png",
     "tags": ["save", "social"],
     "requiredChains": ["eip155:8453", "eip155:84532"],

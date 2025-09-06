@@ -20,7 +20,7 @@ export interface SavingsPlan {
 // Hook to read a specific plan
 export function usePlan(planId: number) {
   const chainId = useChainId();
-  
+
   return useReadContract({
     address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
@@ -35,7 +35,7 @@ export function usePlan(planId: number) {
 // Hook to get the next plan ID (useful for checking if plans exist)
 export function useNextPlanId() {
   const chainId = useChainId();
-  
+
   return useReadContract({
     address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
@@ -46,7 +46,7 @@ export function useNextPlanId() {
 // Hook to get user's plans
 export function useUserPlans(userAddress?: Address) {
   const chainId = useChainId();
-  
+
   return useReadContract({
     address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
@@ -61,7 +61,7 @@ export function useUserPlans(userAddress?: Address) {
 // Hook to get user's contribution to a specific plan
 export function useUserContribution(planId: number, userAddress?: Address) {
   const chainId = useChainId();
-  
+
   return useReadContract({
     address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
@@ -76,7 +76,7 @@ export function useUserContribution(planId: number, userAddress?: Address) {
 // Hook to get plan participants
 export function usePlanParticipants(planId: number) {
   const chainId = useChainId();
-  
+
   return useReadContract({
     address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
@@ -86,6 +86,19 @@ export function usePlanParticipants(planId: number) {
       enabled: planId >= 0, // Updated to allow plan ID 0
     },
   });
+}
+
+// Hook to check if user is a participant in a plan
+export function useIsParticipant(planId: number, userAddress?: Address) {
+  const { data: participants } = usePlanParticipants(planId);
+  
+  if (!participants || !userAddress) {
+    return false;
+  }
+  
+  return (participants as Address[]).some(
+    (participant) => participant.toLowerCase() === userAddress.toLowerCase()
+  );
 }
 
 // Hook for ERC20 token balance
@@ -104,7 +117,7 @@ export function useTokenBalance(tokenAddress: Address, userAddress?: Address) {
 // Hook for getting participant contribution to a specific plan
 export function useParticipantContribution(planId: number, participantAddress?: Address) {
   const chainId = useChainId();
-  
+
   return useReadContract({
     address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
@@ -120,7 +133,7 @@ export function useParticipantContribution(planId: number, participantAddress?: 
 export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) {
   const chainId = useChainId();
   const spenderAddress = getContractAddress(chainId, "BITSAVE_POOLS");
-  
+
   return useReadContract({
     address: tokenAddress,
     abi: ABIS.ERC20,
@@ -132,22 +145,69 @@ export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) 
   });
 }
 
-// Hook for token approval transactions
-export function useTokenApproval() {
+// Hook for adding participants
+export function useAddParticipant() {
   const chainId = useChainId();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
-  
+
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
-  const approveToken = (tokenAddress: Address, amount: string, decimals: number = 6) => {
-    return writeContract({
-      address: tokenAddress,
-      abi: ABIS.ERC20,
-      functionName: "approve",
-      args: [getContractAddress(chainId, "BITSAVE_POOLS"), parseUnits(amount, decimals)],
-    });
+  const addParticipant = async (planId: number, participant: Address) => {
+    console.log("Adding participant:", { planId, participant });
+    
+    try {
+      const result = await writeContract({
+        address: getContractAddress(chainId, "BITSAVE_POOLS"),
+        abi: ABIS.BITSAVE_POOLS,
+        functionName: "addParticipant",
+        args: [BigInt(planId), participant],
+      });
+      console.log("Add participant transaction initiated:", result);
+      return result;
+    } catch (error) {
+      console.error("Add participant transaction failed:", error);
+      throw error;
+    }
+  };
+
+  return {
+    addParticipant,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isSuccess,
+  };
+}
+export function useTokenApproval() {
+  const chainId = useChainId();
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const approveToken = async (tokenAddress: Address, amount: string, decimals: number = 6) => {
+    console.log("Calling approveToken with:", { tokenAddress, amount, decimals });
+    
+    try {
+      const spenderAddress = getContractAddress(chainId, "BITSAVE_POOLS");
+      console.log("Approving spender:", spenderAddress);
+      
+      const result = await writeContract({
+        address: tokenAddress,
+        abi: ABIS.ERC20,
+        functionName: "approve",
+        args: [spenderAddress, parseUnits(amount, decimals)],
+      });
+      console.log("Approval transaction initiated:", result);
+      return result;
+    } catch (error) {
+      console.error("Approval transaction failed:", error);
+      throw error;
+    }
   };
 
   return {
@@ -164,18 +224,28 @@ export function useTokenApproval() {
 export function useDeposit() {
   const chainId = useChainId();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
-  
+
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
 
-  const deposit = (planId: number, amount: string, decimals: number = 6) => {
-    return writeContract({
-      address: getContractAddress(chainId, "BITSAVE_POOLS"),
-      abi: ABIS.BITSAVE_POOLS,
-      functionName: "deposit",
-      args: [BigInt(planId), parseUnits(amount, decimals)],
-    });
+  const deposit = async (planId: number, amount: string, decimals: number = 6) => {
+    console.log("Calling deposit with:", { planId, amount, decimals, parsed: parseUnits(amount, decimals) });
+    
+    try {
+      const result = await writeContract({
+        address: getContractAddress(chainId, "BITSAVE_POOLS"),
+        abi: ABIS.BITSAVE_POOLS,
+        functionName: "deposit",
+        args: [BigInt(planId), parseUnits(amount, decimals)],
+        chainId,
+      });
+      console.log("Deposit transaction initiated:", result);
+      return result;
+    } catch (error) {
+      console.error("Deposit transaction failed:", error);
+      throw error;
+    }
   };
 
   return {
@@ -192,7 +262,7 @@ export function useDeposit() {
 export function useBitSaveContracts() {
   const chainId = useChainId();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
-  
+
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });

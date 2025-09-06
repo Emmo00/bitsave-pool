@@ -20,6 +20,7 @@ import {
 } from "@/contracts/hooks";
 import { SUPPORTED_TOKENS } from "@/contracts/config";
 import { Address } from "viem";
+import { resolveENSOrAddress, generateFallbackAvatar } from "@/utils/ens";
 
 interface PlanDetailsViewProps {
   planId: string;
@@ -37,35 +38,21 @@ function formatAddress(address: Address): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-// Mock participant data for demonstration (in real app, this would come from indexing service)
-function generateMockParticipantData(address: Address) {
-  const mockNames = {
-    "0x1234567890123456789012345678901234567890": "alice.eth",
-    "0x9876543210987654321098765432109876543210": "bob.eth",
-    "0x5555555555555555555555555555555555555555": null,
-    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "charlie.eth",
-    "0xcccccccccccccccccccccccccccccccccccccccc": "david.eth",
-    "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": null,
-  };
-  
-  const mockAvatars = [
-    "/alice-avatar.png",
-    "/bob-avatar.jpg", 
-    "/identicon-0x5555.jpg"
-  ];
-  
-  return {
-    ensName: mockNames[address as keyof typeof mockNames] || null,
-    avatar: mockAvatars[Math.floor(Math.random() * mockAvatars.length)]
-  };
-}
-
 export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "participants">("overview");
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [participantsWithEns, setParticipantsWithEns] = useState<Array<{
+    address: Address;
+    ensName?: string;
+    avatar?: string;
+    displayName: string;
+    contribution: number;
+  }>>([]);
+  const [ensLoading, setEnsLoading] = useState(false);
+  
   const navigate = useNavigate();
   const { address: userAddress } = useAccount();
 
@@ -73,9 +60,64 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const { data: planData, isLoading: planLoading, error: planError } = usePlan(parseInt(planId));
   const { data: participantsData } = usePlanParticipants(parseInt(planId));
 
+  // Type assertion for participants data - it should be an array of addresses
+  const participants = (participantsData as Address[]) || [];
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Resolve ENS data for participants
+  useEffect(() => {
+    if (participants && participants.length > 0) {
+      setEnsLoading(true);
+      
+      const resolveParticipants = async () => {
+        try {
+          const resolvedParticipants = await Promise.all(
+            participants.map(async (address: Address) => {
+              try {
+                const ensData = await resolveENSOrAddress(address);
+                return {
+                  address,
+                  ensName: ensData.ensName,
+                  avatar: ensData.avatar || generateFallbackAvatar(address),
+                  displayName: ensData.displayName,
+                  contribution: Math.floor(Math.random() * 4000) + 1000, // Mock contribution for demo
+                };
+              } catch (error) {
+                console.warn(`Failed to resolve ENS for ${address}:`, error);
+                return {
+                  address,
+                  ensName: undefined,
+                  avatar: generateFallbackAvatar(address),
+                  displayName: formatAddress(address),
+                  contribution: Math.floor(Math.random() * 4000) + 1000, // Mock contribution for demo
+                };
+              }
+            })
+          );
+          
+          setParticipantsWithEns(resolvedParticipants);
+        } catch (error) {
+          console.error('Error resolving ENS data:', error);
+          // Fallback to addresses only
+          const fallbackParticipants = participants.map((address: Address) => ({
+            address,
+            ensName: undefined,
+            avatar: generateFallbackAvatar(address),
+            displayName: formatAddress(address),
+            contribution: Math.floor(Math.random() * 4000) + 1000,
+          }));
+          setParticipantsWithEns(fallbackParticipants);
+        } finally {
+          setEnsLoading(false);
+        }
+      };
+
+      resolveParticipants();
+    }
+  }, [participants]);
 
   if (!mounted) {
     return null;
@@ -112,7 +154,6 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   const plan = planData as SavingsPlan;
   const tokenInfo = getTokenInfo(plan.token);
-  const participants = participantsData as Address[] || [];
   
   // Calculate plan metrics
   const targetAmount = parseFloat(formatTokenAmount(plan.target, tokenInfo.decimals));
@@ -130,32 +171,6 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const deadlineTimestamp = Number(plan.deadline) * 1000; // Convert to milliseconds
   const daysLeft = Math.ceil((deadlineTimestamp - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
-  // Create mock deposits for recent activity (in real app, this would come from event logs)
-  const mockDeposits = participants.slice(0, 3).map((participant, index) => {
-    const participantData = generateMockParticipantData(participant);
-    return {
-      id: index.toString(),
-      participant: {
-        address: participant,
-        ensName: participantData.ensName,
-        avatar: participantData.avatar,
-      },
-      amount: Math.floor(Math.random() * 3000) + 1000, // Random amount for demo
-      date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Random date within last 30 days
-    };
-  });
-
-  // Create participants list with contributions
-  const participantsList = participants.map((participant) => {
-    const participantData = generateMockParticipantData(participant);
-    return {
-      address: participant,
-      ensName: participantData.ensName,
-      avatar: participantData.avatar,
-      contribution: Math.floor(Math.random() * 4000) + 1000, // Mock contribution for demo
-    };
-  });
-
   // Create plan object in expected format for modals
   const planForModals = {
     id: planId,
@@ -168,8 +183,8 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     status: isActive ? "active" as const : isCancelled ? "cancelled" as const : "completed" as const,
     owner: plan.owner,
     currentUser: userAddress || "0x0000000000000000000000000000000000000000",
-    deposits: mockDeposits,
-    participantsList,
+    deposits: [], // No longer showing deposits
+    participantsList: participantsWithEns,
   };
 
   return (
@@ -279,43 +294,6 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
               transition={{ duration: 0.3 }}
               className="space-y-6"
             >
-              {/* Recent Deposits */}
-              <Card className="neomorphic rounded-3xl p-6 border-0">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Recent Deposits</h3>
-                <div className="space-y-3">
-                  {mockDeposits.map((deposit, index) => (
-                    <motion.div
-                      key={deposit.id}
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      className="flex items-center gap-3 p-3 rounded-2xl bg-muted/50"
-                    >
-                      <img
-                        src={deposit.participant.avatar || "/placeholder.svg"}
-                        alt={deposit.participant.ensName || deposit.participant.address}
-                        className="w-10 h-10 rounded-full"
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium text-foreground">
-                          {deposit.participant.ensName ||
-                            formatAddress(deposit.participant.address as Address)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(deposit.date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">
-                          +${deposit.amount.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{tokenInfo.symbol}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </Card>
-
               {/* Action Buttons */}
               <div className="space-y-3">
                 {!isCompleted && (
@@ -363,49 +341,60 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             >
               <Card className="neomorphic rounded-3xl p-6 border-0">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  All Participants ({participantsList.length})
+                  All Participants ({participantsWithEns.length})
                 </h3>
-                <div className="space-y-3">
-                  {participantsList.map((participant, index) => (
-                    <motion.div
-                      key={participant.address}
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      className="flex items-center gap-3 p-4 rounded-2xl bg-muted/50"
-                    >
-                      <img
-                        src={participant.avatar || "/placeholder.svg"}
-                        alt={participant.ensName || participant.address}
-                        className="w-12 h-12 rounded-full"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-foreground">
-                            {participant.ensName ||
-                              formatAddress(participant.address)}
+                
+                {ensLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Resolving ENS names...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {participantsWithEns.map((participant, index) => (
+                      <motion.div
+                        key={participant.address}
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ duration: 0.4, delay: index * 0.1 }}
+                        className="flex items-center gap-3 p-4 rounded-2xl bg-muted/50"
+                      >
+                        <img
+                          src={participant.avatar}
+                          alt={participant.displayName}
+                          className="w-12 h-12 rounded-full"
+                          onError={(e) => {
+                            // Fallback to generated avatar if image fails to load
+                            e.currentTarget.src = generateFallbackAvatar(participant.address);
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground">
+                              {participant.displayName}
+                            </p>
+                            {participant.address.toLowerCase() === plan.owner.toLowerCase() && (
+                              <Badge variant="secondary" className="text-xs">
+                                Owner
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {formatAddress(participant.address)}
                           </p>
-                          {participant.address.toLowerCase() === plan.owner.toLowerCase() && (
-                            <Badge variant="secondary" className="text-xs">
-                              Owner
-                            </Badge>
-                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {formatAddress(participant.address)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">
-                          ${participant.contribution.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {((participant.contribution / currentAmount) * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-foreground">
+                            ${participant.contribution.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {currentAmount > 0 ? ((participant.contribution / currentAmount) * 100).toFixed(1) : '0.0'}%
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </Card>
             </motion.div>
           )}

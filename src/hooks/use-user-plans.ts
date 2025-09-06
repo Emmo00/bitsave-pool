@@ -1,8 +1,7 @@
 
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount, useReadContract, useReadContracts, useChainId } from 'wagmi';
 import { Address, formatUnits, Abi } from 'viem';
 import { ABIS, getContractAddress, SUPPORTED_TOKENS } from '@/contracts/config';
-import { baseSepolia } from 'wagmi/chains';
 import { useMemo } from 'react';
 
 export interface UserPlanSummary {
@@ -24,7 +23,8 @@ export interface UserPlanSummary {
 
 export function useUserPlans() {
   const { address } = useAccount();
-  const contractAddress = getContractAddress(baseSepolia.id, 'BITSAVE_POOLS');
+  const chainId = useChainId();
+  const contractAddress = getContractAddress(chainId, 'BITSAVE_POOLS');
 
   // Get all plan IDs for this user
   const { data: planIds, isLoading: loadingPlanIds } = useReadContract({

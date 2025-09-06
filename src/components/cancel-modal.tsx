@@ -4,9 +4,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { X, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi"
 import { getContractAddress, ABIS } from "@/contracts/config"
-import { baseSepolia } from "wagmi/chains"
 import { useToast } from "@/hooks/use-toast"
 
 interface CancelModalProps {
@@ -21,6 +20,7 @@ interface CancelModalProps {
 
 export function CancelModal({ isOpen, onClose, plan, onSuccess }: CancelModalProps) {
   const { toast } = useToast()
+  const chainId = useChainId()
 
   const { writeContract, data: txHash, isPending } = useWriteContract()
   
@@ -29,7 +29,7 @@ export function CancelModal({ isOpen, onClose, plan, onSuccess }: CancelModalPro
   })
 
   const handleCancel = async () => {
-    const contractAddress = getContractAddress(baseSepolia.id, 'BITSAVE_POOLS')
+    const contractAddress = getContractAddress(chainId, 'BITSAVE_POOLS')
     
     try {
       writeContract({

@@ -1,7 +1,6 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
 import { Address, parseUnits, formatUnits } from "viem";
 import { ABIS, getContractAddress } from "./config";
-import { baseSepolia } from "wagmi/chains";
 
 // Plan interface based on the smart contract
 export interface SavingsPlan {
@@ -19,21 +18,25 @@ export interface SavingsPlan {
 
 // Hook to read a specific plan
 export function usePlan(planId: number) {
+  const chainId = useChainId();
+  
   return useReadContract({
-    address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+    address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
     functionName: "plans",
     args: [BigInt(planId)],
     query: {
-      enabled: planId > 0,
+      enabled: planId >= 0, // Plans can start from 0
     },
   });
 }
 
 // Hook to get the next plan ID (useful for checking if plans exist)
 export function useNextPlanId() {
+  const chainId = useChainId();
+  
   return useReadContract({
-    address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+    address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
     functionName: "nextPlanId",
   });
@@ -41,8 +44,10 @@ export function useNextPlanId() {
 
 // Hook to get user's plans
 export function useUserPlans(userAddress?: Address) {
+  const chainId = useChainId();
+  
   return useReadContract({
-    address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+    address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
     functionName: "getPlansByUser",
     args: userAddress ? [userAddress] : undefined,
@@ -54,26 +59,30 @@ export function useUserPlans(userAddress?: Address) {
 
 // Hook to get user's contribution to a specific plan
 export function useUserContribution(planId: number, userAddress?: Address) {
+  const chainId = useChainId();
+  
   return useReadContract({
-    address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+    address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
     functionName: "getContribution",
     args: [BigInt(planId), userAddress],
     query: {
-      enabled: planId > 0 && !!userAddress,
+      enabled: planId >= 0 && !!userAddress, // Updated to allow plan ID 0
     },
   });
 }
 
 // Hook to get plan participants
 export function usePlanParticipants(planId: number) {
+  const chainId = useChainId();
+  
   return useReadContract({
-    address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+    address: getContractAddress(chainId, "BITSAVE_POOLS"),
     abi: ABIS.BITSAVE_POOLS,
     functionName: "getParticipants",
     args: [BigInt(planId)],
     query: {
-      enabled: planId > 0,
+      enabled: planId >= 0, // Updated to allow plan ID 0
     },
   });
 }
@@ -93,7 +102,8 @@ export function useTokenBalance(tokenAddress: Address, userAddress?: Address) {
 
 // Hook for ERC20 token allowance
 export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) {
-  const spenderAddress = getContractAddress(baseSepolia.id, "BITSAVE_POOLS");
+  const chainId = useChainId();
+  const spenderAddress = getContractAddress(chainId, "BITSAVE_POOLS");
   
   return useReadContract({
     address: tokenAddress,
@@ -108,6 +118,7 @@ export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) 
 
 // Hook for writing contracts (transactions)
 export function useBitSaveContracts() {
+  const chainId = useChainId();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
@@ -123,7 +134,7 @@ export function useBitSaveContracts() {
     initialParticipants: Address[] = []
   ) => {
     writeContract({
-      address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "createPlan",
       args: [
@@ -139,7 +150,7 @@ export function useBitSaveContracts() {
 
   const deposit = (planId: number, amount: string, decimals: number = 6) => {
     writeContract({
-      address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "deposit",
       args: [BigInt(planId), parseUnits(amount, decimals)],
@@ -151,13 +162,13 @@ export function useBitSaveContracts() {
       address: tokenAddress,
       abi: ABIS.ERC20,
       functionName: "approve",
-      args: [getContractAddress(baseSepolia.id, "BITSAVE_POOLS"), parseUnits(amount, decimals)],
+      args: [getContractAddress(chainId, "BITSAVE_POOLS"), parseUnits(amount, decimals)],
     });
   };
 
   const addParticipant = (planId: number, participant: Address) => {
     writeContract({
-      address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "addParticipant",
       args: [BigInt(planId), participant],
@@ -166,7 +177,7 @@ export function useBitSaveContracts() {
 
   const withdrawToBeneficiary = (planId: number) => {
     writeContract({
-      address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "withdrawToBeneficiary",
       args: [BigInt(planId)],
@@ -175,7 +186,7 @@ export function useBitSaveContracts() {
 
   const claimRefund = (planId: number) => {
     writeContract({
-      address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "claimRefund",
       args: [BigInt(planId)],
@@ -184,7 +195,7 @@ export function useBitSaveContracts() {
 
   const cancelPlan = (planId: number) => {
     writeContract({
-      address: getContractAddress(baseSepolia.id, "BITSAVE_POOLS"),
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "cancelPlan",
       args: [BigInt(planId)],

@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi"
+import { useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi"
 import { getContractAddress, ABIS } from "@/contracts/config"
-import { baseSepolia } from "wagmi/chains"
 import { Address } from "viem"
 import { resolveENSOrAddress } from "@/utils/ens"
 import { useToast } from "@/hooks/use-toast"
@@ -26,6 +25,7 @@ export function AddParticipantModal({ isOpen, onClose, planId, onSuccess }: AddP
   const [resolving, setResolving] = useState(false)
   const [resolvedAddress, setResolvedAddress] = useState<Address | null>(null)
   const { toast } = useToast()
+  const chainId = useChainId()
 
   const { writeContract, data: txHash, isPending } = useWriteContract()
   
@@ -59,7 +59,7 @@ export function AddParticipantModal({ isOpen, onClose, planId, onSuccess }: AddP
       return
     }
 
-    const contractAddress = getContractAddress(baseSepolia.id, 'BITSAVE_POOLS')
+    const contractAddress = getContractAddress(chainId, 'BITSAVE_POOLS')
     
     try {
       writeContract({

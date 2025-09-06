@@ -1,7 +1,6 @@
-import { useAccount, useReadContract, useReadContracts } from 'wagmi';
+import { useAccount, useReadContract, useReadContracts, useChainId } from 'wagmi';
 import { Address, formatUnits } from 'viem';
 import { ABIS, getContractAddress, SUPPORTED_TOKENS } from '@/contracts/config';
-import { baseSepolia } from 'wagmi/chains';
 import { resolveENSOrAddress } from '@/utils/ens';
 import { useState, useEffect } from 'react';
 
@@ -30,10 +29,11 @@ export interface ParticipantWithContribution {
 
 export function usePlanData(planId: string) {
   const { address } = useAccount();
+  const chainId = useChainId();
   const [participantsWithENS, setParticipantsWithENS] = useState<ParticipantWithContribution[]>([]);
   const [loadingENSResolution, setLoadingENSResolution] = useState(false);
 
-  const contractAddress = getContractAddress(baseSepolia.id, 'BITSAVE_POOLS');
+  const contractAddress = getContractAddress(chainId, 'BITSAVE_POOLS');
 
   // Read the plan data
   const { 

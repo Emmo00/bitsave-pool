@@ -8,7 +8,7 @@ export const CONTRACT_ADDRESSES = {
   [baseSepolia.id]: {
     BITSAVE_POOLS: "0x0fe41e38d4244D97BE207Fd1dF513E648D1bF888" as Address,
     // Common tokens on Base Sepolia
-    USDC: "0xB9b65AD5B47C185D729161b1D25083bD1382D2BC" as Address, // Base Sepolia USDC
+    USDC: "0x9BeC29053DAD9B28F41ffEA16c7f20a16f79faA6" as Address, // Base Sepolia USDC
     // Add more tokens as they become available on Base Sepolia
   },
 } as const;

@@ -60,6 +60,16 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const { data: planData, isLoading: planLoading, error: planError } = usePlan(parseInt(planId));
   const { data: participantsData } = usePlanParticipants(parseInt(planId));
 
+  // Debug logging
+  console.log('Plan Details Debug:', {
+    planId,
+    parsedPlanId: parseInt(planId),
+    planData,
+    planLoading,
+    planError,
+    participantsData
+  });
+
   // Type assertion for participants data - it should be an array of addresses
   const participants = (participantsData as Address[]) || [];
 
@@ -137,6 +147,8 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   // Error state
   if (planError || !planData) {
+    console.error('Plan error details:', { planError, planData, planId });
+    
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -144,9 +156,17 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             {planError ? "Error loading plan" : "Plan not found"}
           </h2>
           <p className="text-muted-foreground mb-4">
-            {planError ? "Please try again later." : "The requested plan could not be found."}
+            {planError 
+              ? `Error: ${planError.message || "Please try again later."}` 
+              : `Plan ID ${planId} could not be found. It may not exist or may have been removed.`
+            }
           </p>
-          <Button onClick={() => navigate(-1)}>Go Back</Button>
+          <div className="space-y-2">
+            <Button onClick={() => navigate(-1)}>Go Back</Button>
+            <Button variant="outline" onClick={() => navigate("/plans")}>
+              View All Plans
+            </Button>
+          </div>
         </div>
       </div>
     );

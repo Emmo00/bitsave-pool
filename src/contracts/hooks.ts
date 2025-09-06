@@ -101,6 +101,21 @@ export function useTokenBalance(tokenAddress: Address, userAddress?: Address) {
   });
 }
 
+// Hook for getting participant contribution to a specific plan
+export function useParticipantContribution(planId: number, participantAddress?: Address) {
+  const chainId = useChainId();
+  
+  return useReadContract({
+    address: getContractAddress(chainId, "BITSAVE_POOLS"),
+    abi: ABIS.BITSAVE_POOLS,
+    functionName: "getContribution",
+    args: participantAddress ? [BigInt(planId), participantAddress] : undefined,
+    query: {
+      enabled: !!participantAddress && planId >= 0,
+    },
+  });
+}
+
 // Hook for ERC20 token allowance
 export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) {
   const chainId = useChainId();

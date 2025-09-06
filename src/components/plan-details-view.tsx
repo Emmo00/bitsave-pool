@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Calendar, Users, TrendingUp, Download, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -16,6 +16,7 @@ import {
   usePlan, 
   usePlanParticipants, 
   useNextPlanId,
+  useParticipantContribution,
   formatTokenAmount,
   type SavingsPlan 
 } from "@/contracts/hooks";
@@ -40,6 +41,22 @@ function getTokenInfo(tokenAddress: Address | undefined) {
 // Helper function to format address for display
 function formatAddress(address: Address): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+// Component that fetches contributions for multiple participants
+function useParticipantContributions(planId: number, participantAddresses: Address[]) {
+  const contributionQueries = participantAddresses.map(address => 
+    useParticipantContribution(planId, address)
+  );
+
+  const isLoading = contributionQueries.some(query => query.isLoading);
+  const hasError = contributionQueries.some(query => query.error);
+  
+  const contributions = useMemo(() => {
+    return contributionQueries.map(query => query.data);
+  }, [contributionQueries]);
+
+  return { contributions, isLoading, hasError };
 }
 
 export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
@@ -101,6 +118,12 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   // Type assertion for participants data - it should be an array of addresses
   const participants = (participantsData as Address[]) || [];
+  
+  // Fetch contributions for all participants
+  const { contributions, isLoading: contributionsLoading } = useParticipantContributions(
+    numericPlanId, 
+    participants
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -108,30 +131,47 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   // Resolve ENS data for participants
   useEffect(() => {
-    if (participants && participants.length > 0) {
+    if (participants && participants.length > 0 && !contributionsLoading && planData) {
       setEnsLoading(true);
       
       const resolveParticipants = async () => {
         try {
+          const plan = planData as SavingsPlan;
+          const tokenInfo = getTokenInfo(plan?.token);
+          
           const resolvedParticipants = await Promise.all(
-            participants.map(async (address: Address) => {
+            participants.map(async (address: Address, index: number) => {
               try {
                 const ensData = await resolveENSOrAddress(address);
+                
+                // Get real contribution amount
+                const contributionData = contributions[index];
+                const contributionAmount = contributionData && typeof contributionData === 'bigint'
+                  ? parseFloat(formatTokenAmount(contributionData, tokenInfo.decimals))
+                  : 0;
+                
                 return {
                   address,
                   ensName: ensData.ensName,
                   avatar: ensData.avatar || generateFallbackAvatar(address),
                   displayName: ensData.displayName,
-                  contribution: Math.floor(Math.random() * 4000) + 1000, // Mock contribution for demo
+                  contribution: contributionAmount,
                 };
               } catch (error) {
                 console.warn(`Failed to resolve ENS for ${address}:`, error);
+                
+                // Get real contribution amount even if ENS fails
+                const contributionData = contributions[index];
+                const contributionAmount = contributionData && typeof contributionData === 'bigint'
+                  ? parseFloat(formatTokenAmount(contributionData, tokenInfo.decimals))
+                  : 0;
+                
                 return {
                   address,
                   ensName: undefined,
                   avatar: generateFallbackAvatar(address),
                   displayName: formatAddress(address),
-                  contribution: Math.floor(Math.random() * 4000) + 1000, // Mock contribution for demo
+                  contribution: contributionAmount,
                 };
               }
             })
@@ -140,14 +180,24 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
           setParticipantsWithEns(resolvedParticipants);
         } catch (error) {
           console.error('Error resolving ENS data:', error);
-          // Fallback to addresses only
-          const fallbackParticipants = participants.map((address: Address) => ({
-            address,
-            ensName: undefined,
-            avatar: generateFallbackAvatar(address),
-            displayName: formatAddress(address),
-            contribution: Math.floor(Math.random() * 4000) + 1000,
-          }));
+          // Fallback to addresses only with real contribution data
+          const plan = planData as SavingsPlan;
+          const tokenInfo = getTokenInfo(plan?.token);
+          
+          const fallbackParticipants = participants.map((address: Address, index: number) => {
+            const contributionData = contributions[index];
+            const contributionAmount = contributionData && typeof contributionData === 'bigint'
+              ? parseFloat(formatTokenAmount(contributionData, tokenInfo.decimals))
+              : 0;
+              
+            return {
+              address,
+              ensName: undefined,
+              avatar: generateFallbackAvatar(address),
+              displayName: formatAddress(address),
+              contribution: contributionAmount,
+            };
+          });
           setParticipantsWithEns(fallbackParticipants);
         } finally {
           setEnsLoading(false);
@@ -156,7 +206,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
       resolveParticipants();
     }
-  }, [participants]);
+  }, [participants, contributions, contributionsLoading, planData]);
 
   if (!mounted) {
     return null;
@@ -436,10 +486,10 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                   All Participants ({participantsWithEns.length})
                 </h3>
                 
-                {ensLoading ? (
+                {ensLoading || contributionsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-2 text-muted-foreground">Resolving ENS names...</span>
+                    <span className="ml-2 text-muted-foreground">Loading participant data...</span>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -477,7 +527,10 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-foreground">
-                            ${participant.contribution.toLocaleString()}
+                            {participant.contribution > 0 
+                              ? `${participant.contribution.toLocaleString()} ${tokenInfo.symbol}` 
+                              : `0 ${tokenInfo.symbol}`
+                            }
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {currentAmount > 0 ? ((participant.contribution / currentAmount) * 100).toFixed(1) : '0.0'}%

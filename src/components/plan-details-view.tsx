@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Calendar, Users, TrendingUp, Download, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,11 +16,10 @@ import {
   usePlan, 
   usePlanParticipants, 
   useNextPlanId,
-  useParticipantContribution,
   formatTokenAmount,
   type SavingsPlan 
 } from "@/contracts/hooks";
-import { SUPPORTED_TOKENS } from "@/contracts/config";
+import { SUPPORTED_TOKENS, getContractAddress, ABIS } from "@/contracts/config";
 import { Address } from "viem";
 import { resolveENSOrAddress, generateFallbackAvatar } from "@/utils/ens";
 
@@ -43,22 +42,6 @@ function formatAddress(address: Address): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-// Component that fetches contributions for multiple participants
-function useParticipantContributions(planId: number, participantAddresses: Address[]) {
-  const contributionQueries = participantAddresses.map(address => 
-    useParticipantContribution(planId, address)
-  );
-
-  const isLoading = contributionQueries.some(query => query.isLoading);
-  const hasError = contributionQueries.some(query => query.error);
-  
-  const contributions = useMemo(() => {
-    return contributionQueries.map(query => query.data);
-  }, [contributionQueries]);
-
-  return { contributions, isLoading, hasError };
-}
-
 export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "participants">("overview");
@@ -73,9 +56,11 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     contribution: number;
   }>>([]);
   const [ensLoading, setEnsLoading] = useState(false);
+  const [contributionData, setContributionData] = useState<{ [address: string]: bigint }>({});
   
   const navigate = useNavigate();
   const { address: userAddress } = useAccount();
+  const chainId = useChainId();
 
   // Validate planId
   const numericPlanId = parseInt(planId);
@@ -118,20 +103,57 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
   // Type assertion for participants data - it should be an array of addresses
   const participants = (participantsData as Address[]) || [];
-  
-  // Fetch contributions for all participants
-  const { contributions, isLoading: contributionsLoading } = useParticipantContributions(
-    numericPlanId, 
-    participants
-  );
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Fetch individual contributions manually to avoid hook rules violations
+  useEffect(() => {
+    const fetchContributions = async () => {
+      if (!participants.length || !planData) return;
+      
+      try {
+        const { readContract } = await import('viem/actions');
+        const { createPublicClient, http } = await import('viem');
+        const { baseSepolia } = await import('viem/chains');
+        
+        const publicClient = createPublicClient({
+          chain: baseSepolia,
+          transport: http()
+        });
+        
+        const contributions: { [address: string]: bigint } = {};
+        
+        // Fetch contributions for each participant
+        for (const address of participants) {
+          try {
+            const result = await readContract(publicClient, {
+              address: getContractAddress(chainId, "BITSAVE_POOLS"),
+              abi: ABIS.BITSAVE_POOLS,
+              functionName: "getContribution",
+              args: [BigInt(numericPlanId), address]
+            });
+            
+            contributions[address] = result as bigint;
+          } catch (error) {
+            console.warn(`Failed to fetch contribution for ${address}:`, error);
+            contributions[address] = BigInt(0);
+          }
+        }
+        
+        setContributionData(contributions);
+      } catch (error) {
+        console.error('Error fetching contributions:', error);
+      }
+    };
+
+    fetchContributions();
+  }, [participants, numericPlanId, planData]);
+
   // Resolve ENS data for participants
   useEffect(() => {
-    if (participants && participants.length > 0 && !contributionsLoading && planData) {
+    if (participants && participants.length > 0 && Object.keys(contributionData).length > 0 && planData) {
       setEnsLoading(true);
       
       const resolveParticipants = async () => {
@@ -140,15 +162,13 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
           const tokenInfo = getTokenInfo(plan?.token);
           
           const resolvedParticipants = await Promise.all(
-            participants.map(async (address: Address, index: number) => {
+            participants.map(async (address: Address) => {
               try {
                 const ensData = await resolveENSOrAddress(address);
                 
                 // Get real contribution amount
-                const contributionData = contributions[index];
-                const contributionAmount = contributionData && typeof contributionData === 'bigint'
-                  ? parseFloat(formatTokenAmount(contributionData, tokenInfo.decimals))
-                  : 0;
+                const contributionBigInt = contributionData[address] || BigInt(0);
+                const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
                 
                 return {
                   address,
@@ -161,10 +181,8 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                 console.warn(`Failed to resolve ENS for ${address}:`, error);
                 
                 // Get real contribution amount even if ENS fails
-                const contributionData = contributions[index];
-                const contributionAmount = contributionData && typeof contributionData === 'bigint'
-                  ? parseFloat(formatTokenAmount(contributionData, tokenInfo.decimals))
-                  : 0;
+                const contributionBigInt = contributionData[address] || BigInt(0);
+                const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
                 
                 return {
                   address,
@@ -184,11 +202,9 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
           const plan = planData as SavingsPlan;
           const tokenInfo = getTokenInfo(plan?.token);
           
-          const fallbackParticipants = participants.map((address: Address, index: number) => {
-            const contributionData = contributions[index];
-            const contributionAmount = contributionData && typeof contributionData === 'bigint'
-              ? parseFloat(formatTokenAmount(contributionData, tokenInfo.decimals))
-              : 0;
+          const fallbackParticipants = participants.map((address: Address) => {
+            const contributionBigInt = contributionData[address] || BigInt(0);
+            const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
               
             return {
               address,
@@ -206,7 +222,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
 
       resolveParticipants();
     }
-  }, [participants, contributions, contributionsLoading, planData]);
+  }, [participants, contributionData, planData]);
 
   if (!mounted) {
     return null;
@@ -486,10 +502,10 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                   All Participants ({participantsWithEns.length})
                 </h3>
                 
-                {ensLoading || contributionsLoading ? (
+                {ensLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-2 text-muted-foreground">Loading participant data...</span>
+                    <span className="ml-2 text-muted-foreground">Resolving participant data...</span>
                   </div>
                 ) : (
                   <div className="space-y-3">

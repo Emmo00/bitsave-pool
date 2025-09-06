@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Calendar, Users, TrendingUp, Download, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,303 +12,52 @@ import { CircularProgress } from "./circular-progress";
 import { DepositModal } from "./deposit-modal";
 import { WithdrawModal } from "./withdraw-modal";
 import { CancelModal } from "./cancel-modal";
-
-// Mock data - in real app this would come from API
-const mockPlanDetails = {
-  "1": {
-    id: "1",
-    name: "Emergency Fund",
-    token: "USDC",
-    target: 10000,
-    current: 7500,
-    participants: 3,
-    deadline: "2024-12-31",
-    status: "active" as const,
-    owner: "0x1234...5678",
-    currentUser: "0x1234...5678", // User is owner
-    deposits: [
-      {
-        id: "1",
-        participant: {
-          address: "0x1234...5678",
-          ensName: "alice.eth",
-          avatar: "/alice-avatar.png",
-        },
-        amount: 2500,
-        date: "2024-01-15",
-      },
-      {
-        id: "2",
-        participant: { address: "0x9876...4321", ensName: "bob.eth", avatar: "/bob-avatar.jpg" },
-        amount: 3000,
-        date: "2024-01-20",
-      },
-      {
-        id: "3",
-        participant: { address: "0x5555...7777", ensName: null, avatar: "/identicon-0x5555.jpg" },
-        amount: 2000,
-        date: "2024-02-01",
-      },
-    ],
-    participantsList: [
-      {
-        address: "0x1234...5678",
-        ensName: "alice.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 2500,
-      },
-      {
-        address: "0x9876...4321",
-        ensName: "bob.eth",
-        avatar: "/bob-avatar.jpg",
-        contribution: 3000,
-      },
-      {
-        address: "0x5555...7777",
-        ensName: null,
-        avatar: "/identicon-0x5555.jpg",
-        contribution: 2000,
-      },
-    ],
-  },
-  "2": {
-    id: "2",
-    name: "Vacation Fund",
-    token: "DAI",
-    target: 5000,
-    current: 2800,
-    participants: 2,
-    deadline: "2024-08-15",
-    status: "active" as const,
-    owner: "0x1234...5678",
-    currentUser: "0x1234...5678",
-    deposits: [
-      {
-        id: "1",
-        participant: {
-          address: "0x1234...5678",
-          ensName: "alice.eth",
-          avatar: "/alice-avatar.png",
-        },
-        amount: 1500,
-        date: "2024-02-10",
-      },
-      {
-        id: "2",
-        participant: { address: "0x9876...4321", ensName: "bob.eth", avatar: "/bob-avatar.jpg" },
-        amount: 1300,
-        date: "2024-02-15",
-      },
-    ],
-    participantsList: [
-      {
-        address: "0x1234...5678",
-        ensName: "alice.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 1500,
-      },
-      {
-        address: "0x9876...4321",
-        ensName: "bob.eth",
-        avatar: "/bob-avatar.jpg",
-        contribution: 1300,
-      },
-    ],
-  },
-  "3": {
-    id: "3",
-    name: "New Car Fund",
-    token: "USDT",
-    target: 25000,
-    current: 12000,
-    participants: 4,
-    deadline: "2025-06-01",
-    status: "active" as const,
-    owner: "0x1234...5678",
-    currentUser: "0x1234...5678",
-    deposits: [
-      {
-        id: "1",
-        participant: {
-          address: "0x1234...5678",
-          ensName: "alice.eth",
-          avatar: "/alice-avatar.png",
-        },
-        amount: 4000,
-        date: "2024-01-05",
-      },
-      {
-        id: "2",
-        participant: { address: "0x9876...4321", ensName: "bob.eth", avatar: "/bob-avatar.jpg" },
-        amount: 3500,
-        date: "2024-01-12",
-      },
-      {
-        id: "3",
-        participant: { address: "0x5555...7777", ensName: null, avatar: "/identicon-0x5555.jpg" },
-        amount: 2500,
-        date: "2024-01-20",
-      },
-      {
-        id: "4",
-        participant: {
-          address: "0xaaaa...bbbb",
-          ensName: "charlie.eth",
-          avatar: "/alice-avatar.png",
-        },
-        amount: 2000,
-        date: "2024-02-01",
-      },
-    ],
-    participantsList: [
-      {
-        address: "0x1234...5678",
-        ensName: "alice.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 4000,
-      },
-      {
-        address: "0x9876...4321",
-        ensName: "bob.eth",
-        avatar: "/bob-avatar.jpg",
-        contribution: 3500,
-      },
-      {
-        address: "0x5555...7777",
-        ensName: null,
-        avatar: "/identicon-0x5555.jpg",
-        contribution: 2500,
-      },
-      {
-        address: "0xaaaa...bbbb",
-        ensName: "charlie.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 2000,
-      },
-    ],
-  },
-  "4": {
-    id: "4",
-    name: "House Down Payment",
-    token: "USDC",
-    target: 50000,
-    current: 32000,
-    participants: 6,
-    deadline: "2025-03-15",
-    status: "active" as const,
-    owner: "0x9876...4321",
-    currentUser: "0x1234...5678", // User is participant, not owner
-    deposits: [
-      {
-        id: "1",
-        participant: { address: "0x9876...4321", ensName: "bob.eth", avatar: "/bob-avatar.jpg" },
-        amount: 8000,
-        date: "2024-01-01",
-      },
-      {
-        id: "2",
-        participant: {
-          address: "0x1234...5678",
-          ensName: "alice.eth",
-          avatar: "/alice-avatar.png",
-        },
-        amount: 6000,
-        date: "2024-01-08",
-      },
-      {
-        id: "3",
-        participant: { address: "0x5555...7777", ensName: null, avatar: "/identicon-0x5555.jpg" },
-        amount: 5500,
-        date: "2024-01-15",
-      },
-    ],
-    participantsList: [
-      {
-        address: "0x9876...4321",
-        ensName: "bob.eth",
-        avatar: "/bob-avatar.jpg",
-        contribution: 8000,
-      },
-      {
-        address: "0x1234...5678",
-        ensName: "alice.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 6000,
-      },
-      {
-        address: "0x5555...7777",
-        ensName: null,
-        avatar: "/identicon-0x5555.jpg",
-        contribution: 5500,
-      },
-      {
-        address: "0xaaaa...bbbb",
-        ensName: "charlie.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 4500,
-      },
-      {
-        address: "0xcccc...dddd",
-        ensName: "david.eth",
-        avatar: "/bob-avatar.jpg",
-        contribution: 4000,
-      },
-      {
-        address: "0xeeee...ffff",
-        ensName: null,
-        avatar: "/identicon-0x5555.jpg",
-        contribution: 4000,
-      },
-    ],
-  },
-  "5": {
-    id: "5",
-    name: "Wedding Fund",
-    token: "DAI",
-    target: 15000,
-    current: 9500,
-    participants: 2,
-    deadline: "2024-10-20",
-    status: "active" as const,
-    owner: "0x9876...4321",
-    currentUser: "0x1234...5678", // User is participant, not owner
-    deposits: [
-      {
-        id: "1",
-        participant: { address: "0x9876...4321", ensName: "bob.eth", avatar: "/bob-avatar.jpg" },
-        amount: 5000,
-        date: "2024-01-10",
-      },
-      {
-        id: "2",
-        participant: {
-          address: "0x1234...5678",
-          ensName: "alice.eth",
-          avatar: "/alice-avatar.png",
-        },
-        amount: 4500,
-        date: "2024-01-18",
-      },
-    ],
-    participantsList: [
-      {
-        address: "0x9876...4321",
-        ensName: "bob.eth",
-        avatar: "/bob-avatar.jpg",
-        contribution: 5000,
-      },
-      {
-        address: "0x1234...5678",
-        ensName: "alice.eth",
-        avatar: "/alice-avatar.png",
-        contribution: 4500,
-      },
-    ],
-  },
-};
+import { 
+  usePlan, 
+  usePlanParticipants, 
+  formatTokenAmount,
+  type SavingsPlan 
+} from "@/contracts/hooks";
+import { SUPPORTED_TOKENS } from "@/contracts/config";
+import { Address } from "viem";
 
 interface PlanDetailsViewProps {
   planId: string;
+}
+
+// Helper function to get token info by address
+function getTokenInfo(tokenAddress: Address) {
+  return SUPPORTED_TOKENS.find(token => 
+    token.address.toLowerCase() === tokenAddress.toLowerCase()
+  ) || SUPPORTED_TOKENS[0]; // Default to first token if not found
+}
+
+// Helper function to format address for display
+function formatAddress(address: Address): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+// Mock participant data for demonstration (in real app, this would come from indexing service)
+function generateMockParticipantData(address: Address) {
+  const mockNames = {
+    "0x1234567890123456789012345678901234567890": "alice.eth",
+    "0x9876543210987654321098765432109876543210": "bob.eth",
+    "0x5555555555555555555555555555555555555555": null,
+    "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "charlie.eth",
+    "0xcccccccccccccccccccccccccccccccccccccccc": "david.eth",
+    "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": null,
+  };
+  
+  const mockAvatars = [
+    "/alice-avatar.png",
+    "/bob-avatar.jpg", 
+    "/identicon-0x5555.jpg"
+  ];
+  
+  return {
+    ensName: mockNames[address as keyof typeof mockNames] || null,
+    avatar: mockAvatars[Math.floor(Math.random() * mockAvatars.length)]
+  };
 }
 
 export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
@@ -317,6 +67,11 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const navigate = useNavigate();
+  const { address: userAddress } = useAccount();
+
+  // Fetch onchain data
+  const { data: planData, isLoading: planLoading, error: planError } = usePlan(parseInt(planId));
+  const { data: participantsData } = usePlanParticipants(parseInt(planId));
 
   useEffect(() => {
     setMounted(true);
@@ -326,27 +81,96 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     return null;
   }
 
-  const plan = mockPlanDetails[planId as keyof typeof mockPlanDetails];
-
-  if (!plan) {
+  // Loading state
+  if (planLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-foreground mb-2">Plan not found</h2>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-foreground mb-2">Loading plan details...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (planError || !planData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            {planError ? "Error loading plan" : "Plan not found"}
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            {planError ? "Please try again later." : "The requested plan could not be found."}
+          </p>
           <Button onClick={() => navigate(-1)}>Go Back</Button>
         </div>
       </div>
     );
   }
 
-  const progress = (plan.current / plan.target) * 100;
-  const isOwner = plan.owner === plan.currentUser;
-  const isCompleted = progress >= 100; // Based on progress instead of status
-  const isCancelled = false; // No cancelled plans in mock data
-  const canWithdraw = isOwner && progress >= 100;
-  const daysLeft = Math.ceil(
-    (new Date(plan.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const plan = planData as SavingsPlan;
+  const tokenInfo = getTokenInfo(plan.token);
+  const participants = participantsData as Address[] || [];
+  
+  // Calculate plan metrics
+  const targetAmount = parseFloat(formatTokenAmount(plan.target, tokenInfo.decimals));
+  const currentAmount = parseFloat(formatTokenAmount(plan.deposited, tokenInfo.decimals));
+  const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
+  
+  // Plan status
+  const isOwner = userAddress && plan.owner.toLowerCase() === userAddress.toLowerCase();
+  const isCompleted = progress >= 100;
+  const isCancelled = plan.cancelled;
+  const isActive = plan.active && !plan.cancelled && !plan.withdrawn;
+  const canWithdraw = isOwner && (isCompleted || isCancelled);
+  
+  // Calculate days left
+  const deadlineTimestamp = Number(plan.deadline) * 1000; // Convert to milliseconds
+  const daysLeft = Math.ceil((deadlineTimestamp - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+  // Create mock deposits for recent activity (in real app, this would come from event logs)
+  const mockDeposits = participants.slice(0, 3).map((participant, index) => {
+    const participantData = generateMockParticipantData(participant);
+    return {
+      id: index.toString(),
+      participant: {
+        address: participant,
+        ensName: participantData.ensName,
+        avatar: participantData.avatar,
+      },
+      amount: Math.floor(Math.random() * 3000) + 1000, // Random amount for demo
+      date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Random date within last 30 days
+    };
+  });
+
+  // Create participants list with contributions
+  const participantsList = participants.map((participant) => {
+    const participantData = generateMockParticipantData(participant);
+    return {
+      address: participant,
+      ensName: participantData.ensName,
+      avatar: participantData.avatar,
+      contribution: Math.floor(Math.random() * 4000) + 1000, // Mock contribution for demo
+    };
+  });
+
+  // Create plan object in expected format for modals
+  const planForModals = {
+    id: planId,
+    name: `Plan #${planId}`, // In real app, this would come from plan creation event or metadata
+    token: tokenInfo.symbol,
+    target: targetAmount,
+    current: currentAmount,
+    participants: participants.length,
+    deadline: new Date(deadlineTimestamp).toISOString().split('T')[0],
+    status: isActive ? "active" as const : isCancelled ? "cancelled" as const : "completed" as const,
+    owner: plan.owner,
+    currentUser: userAddress || "0x0000000000000000000000000000000000000000",
+    deposits: mockDeposits,
+    participantsList,
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -362,7 +186,9 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="text-center flex-1">
-            <h1 className="text-lg font-bold text-foreground text-balance">{plan.name}</h1>
+            <h1 className="text-lg font-bold text-foreground text-balance">
+              {planForModals.name}
+            </h1>
             <Badge
               variant={
                 isCompleted ? "default" : isCancelled ? "destructive" : "secondary"
@@ -375,7 +201,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                     : "bg-primary/10 text-primary"
               }`}
             >
-              {isCompleted ? "Completed" : "Active"}
+              {isCompleted ? "Completed" : isCancelled ? "Cancelled" : "Active"}
             </Badge>
           </div>
           <div className="w-9" /> {/* Spacer */}
@@ -424,10 +250,10 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
               className="mx-auto mb-4"
             />
             <h2 className="text-2xl font-bold text-foreground mb-1">
-              ${plan.current.toLocaleString()}
+              ${currentAmount.toLocaleString()}
             </h2>
             <p className="text-muted-foreground mb-2">
-              of ${plan.target.toLocaleString()} {plan.token}
+              of ${targetAmount.toLocaleString()} {tokenInfo.symbol}
             </p>
             <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
@@ -436,7 +262,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
               </div>
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                <span>{plan.participants} participants</span>
+                <span>{participants.length} participants</span>
               </div>
             </div>
           </Card>
@@ -457,7 +283,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
               <Card className="neomorphic rounded-3xl p-6 border-0">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Recent Deposits</h3>
                 <div className="space-y-3">
-                  {plan.deposits.map((deposit, index) => (
+                  {mockDeposits.map((deposit, index) => (
                     <motion.div
                       key={deposit.id}
                       initial={{ y: 20, opacity: 0 }}
@@ -473,7 +299,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                       <div className="flex-1">
                         <p className="font-medium text-foreground">
                           {deposit.participant.ensName ||
-                            `${deposit.participant.address.slice(0, 6)}...${deposit.participant.address.slice(-4)}`}
+                            formatAddress(deposit.participant.address as Address)}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {new Date(deposit.date).toLocaleDateString()}
@@ -483,7 +309,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                         <p className="font-semibold text-foreground">
                           +${deposit.amount.toLocaleString()}
                         </p>
-                        <p className="text-xs text-muted-foreground">{plan.token}</p>
+                        <p className="text-xs text-muted-foreground">{tokenInfo.symbol}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -513,7 +339,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                   </Button>
                 )}
 
-                {isOwner && plan.status === "active" && (
+                {isOwner && isActive && !isCompleted && (
                   <Button
                     onClick={() => setShowCancelModal(true)}
                     variant="outline"
@@ -537,10 +363,10 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
             >
               <Card className="neomorphic rounded-3xl p-6 border-0">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  All Participants ({plan.participantsList.length})
+                  All Participants ({participantsList.length})
                 </h3>
                 <div className="space-y-3">
-                  {plan.participantsList.map((participant, index) => (
+                  {participantsList.map((participant, index) => (
                     <motion.div
                       key={participant.address}
                       initial={{ y: 20, opacity: 0 }}
@@ -557,16 +383,16 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                         <div className="flex items-center gap-2">
                           <p className="font-medium text-foreground">
                             {participant.ensName ||
-                              `${participant.address.slice(0, 6)}...${participant.address.slice(-4)}`}
+                              formatAddress(participant.address)}
                           </p>
-                          {participant.address === plan.owner && (
+                          {participant.address.toLowerCase() === plan.owner.toLowerCase() && (
                             <Badge variant="secondary" className="text-xs">
                               Owner
                             </Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {participant.address.slice(0, 6)}...{participant.address.slice(-4)}
+                          {formatAddress(participant.address)}
                         </p>
                       </div>
                       <div className="text-right">
@@ -574,7 +400,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                           ${participant.contribution.toLocaleString()}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {((participant.contribution / plan.current) * 100).toFixed(1)}%
+                          {((participant.contribution / currentAmount) * 100).toFixed(1)}%
                         </p>
                       </div>
                     </motion.div>
@@ -590,16 +416,20 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
       <DepositModal
         isOpen={showDepositModal}
         onClose={() => setShowDepositModal(false)}
-        plan={plan}
+        plan={planForModals}
       />
 
       <WithdrawModal
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
-        plan={plan}
+        plan={planForModals}
       />
 
-      <CancelModal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} plan={plan} />
+      <CancelModal 
+        isOpen={showCancelModal} 
+        onClose={() => setShowCancelModal(false)} 
+        plan={planForModals} 
+      />
     </div>
   );
 }

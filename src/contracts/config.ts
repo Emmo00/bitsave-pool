@@ -20,12 +20,22 @@ export const ABIS = {
 } as const;
 
 // Get contract address for current network
-export function getContractAddress(chainId: number, contract: keyof typeof CONTRACT_ADDRESSES[84532]) {
+export function getContractAddress(chainId: number, contract: keyof typeof CONTRACT_ADDRESSES[typeof baseSepolia.id]) {
   const addresses = CONTRACT_ADDRESSES[chainId as keyof typeof CONTRACT_ADDRESSES];
   if (!addresses) {
     throw new Error(`Unsupported chain ID: ${chainId}`);
   }
   return addresses[contract];
+}
+
+// Get chain configuration for current network
+export function getChainConfig(chainId: number) {
+  switch (chainId) {
+    case baseSepolia.id:
+      return baseSepolia;
+    default:
+      throw new Error(`Unsupported chain ID: ${chainId}`);
+  }
 }
 
 // Common tokens configuration
@@ -41,4 +51,4 @@ export const SUPPORTED_TOKENS = [
 ] as const;
 
 export type SupportedToken = typeof SUPPORTED_TOKENS[number];
-export type ContractName = keyof typeof CONTRACT_ADDRESSES[84532];
+export type ContractName = keyof typeof CONTRACT_ADDRESSES[typeof baseSepolia.id];

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAccount } from "wagmi"
 import { Address } from "viem"
-import { useBitSaveContracts, useTokenBalance, useTokenAllowance, formatTokenAmount } from "@/contracts/hooks"
+import { useTokenBalance, useTokenAllowance, formatTokenAmount, useTokenApproval, useDeposit } from "@/contracts/hooks"
 import { SUPPORTED_TOKENS } from "@/contracts/config"
 import { useToast } from "@/hooks/use-toast"
 
@@ -46,8 +46,24 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   // Get token info
   const tokenInfo = SUPPORTED_TOKENS.find(t => t.symbol === plan.token) || SUPPORTED_TOKENS[0]
   
-  // Contract hooks
-  const { approveToken, deposit, hash, error, isPending, isConfirming, isSuccess } = useBitSaveContracts()
+  // Contract hooks - separate hooks for approval and deposit
+  const { 
+    approveToken, 
+    hash: approvalHash, 
+    error: approvalError, 
+    isPending: isApprovalPending, 
+    isConfirming: isApprovalConfirming, 
+    isSuccess: isApprovalSuccess 
+  } = useTokenApproval()
+  
+  const { 
+    deposit, 
+    hash: depositHash, 
+    error: depositError, 
+    isPending: isDepositPending, 
+    isConfirming: isDepositConfirming, 
+    isSuccess: isDepositSuccess 
+  } = useDeposit()
   
   // Get user's token balance
   const { data: tokenBalance } = useTokenBalance(tokenInfo.address, userAddress)
@@ -68,6 +84,17 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   const isValidAmount = parsedAmount > 0 && parsedAmount <= parseFloat(formattedBalance)
   const needsApproval = parsedAmount > parseFloat(formattedAllowance)
 
+  // Combine states for UI logic
+  const currentHash = currentStep === DepositStep.APPROVE ? approvalHash : depositHash
+  const currentError = approvalError || depositError
+  const isProcessing = isApprovalPending || isApprovalConfirming || isDepositPending || isDepositConfirming
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentStep(DepositStep.FORM)
+      setAmount("")
+    }
+  }, [isOpen])
+
   // Reset step when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
@@ -76,54 +103,56 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
     }
   }, [isOpen])
 
-  // Handle transaction completion
+  // Handle approval completion
   useEffect(() => {
-    if (isSuccess && currentStep !== DepositStep.SUCCESS) {
-      if (currentStep === DepositStep.APPROVE) {
-        // Approval completed, refetch allowance and automatically proceed to deposit
-        refetchAllowance()
-        toast({
-          title: "Approval Successful!",
-          description: `Approved ${amount} ${tokenInfo.symbol} for spending`,
-        })
-        
-        // Automatically proceed to deposit after approval
-        setTimeout(() => {
-          setCurrentStep(DepositStep.DEPOSIT)
-          // Call deposit function after approval is complete
-          deposit(parseInt(plan.id), amount, tokenInfo.decimals)
-        }, 1000)
-        
-      } else if (currentStep === DepositStep.DEPOSIT) {
-        // Deposit completed
-        setCurrentStep(DepositStep.SUCCESS)
-        toast({
-          title: "Deposit Successful!",
-          description: `Successfully deposited ${amount} ${tokenInfo.symbol}`,
-        })
-        
-        // Close modal after success
-        setTimeout(() => {
-          setCurrentStep(DepositStep.FORM)
-          setAmount("")
-          onClose()
-          onSuccess?.()
-        }, 2000)
-      }
+    if (isApprovalSuccess && currentStep === DepositStep.APPROVE) {
+      // Approval completed, refetch allowance and automatically proceed to deposit
+      refetchAllowance()
+      toast({
+        title: "Approval Successful!",
+        description: `Approved ${amount} ${tokenInfo.symbol} for spending`,
+      })
+      
+      // Automatically proceed to deposit after approval
+      setTimeout(() => {
+        setCurrentStep(DepositStep.DEPOSIT)
+        // Call deposit function after approval is complete
+        deposit(parseInt(plan.id), amount, tokenInfo.decimals)
+      }, 1000)
     }
-  }, [isSuccess, currentStep, amount, tokenInfo.symbol, onClose, onSuccess, refetchAllowance, toast, deposit, plan.id])
+  }, [isApprovalSuccess, currentStep, amount, tokenInfo.symbol, tokenInfo.decimals, refetchAllowance, toast, deposit, plan.id])
+
+  // Handle deposit completion
+  useEffect(() => {
+    if (isDepositSuccess && currentStep === DepositStep.DEPOSIT) {
+      // Deposit completed
+      setCurrentStep(DepositStep.SUCCESS)
+      toast({
+        title: "Deposit Successful!",
+        description: `Successfully deposited ${amount} ${tokenInfo.symbol}`,
+      })
+      
+      // Close modal after success
+      setTimeout(() => {
+        setCurrentStep(DepositStep.FORM)
+        setAmount("")
+        onClose()
+        onSuccess?.()
+      }, 2000)
+    }
+  }, [isDepositSuccess, currentStep, amount, tokenInfo.symbol, onClose, onSuccess, toast])
 
   // Handle transaction errors
   useEffect(() => {
-    if (error) {
+    if (currentError) {
       toast({
         title: "Transaction Failed",
-        description: error.message || "An error occurred during the transaction",
+        description: currentError.message || "An error occurred during the transaction",
         variant: "destructive",
       })
       setCurrentStep(DepositStep.FORM)
     }
-  }, [error, toast])
+  }, [currentError, toast])
 
   const handleApprove = async () => {
     if (!isValidAmount) return
@@ -163,8 +192,6 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
       onClose()
     }
   }
-
-  const isProcessing = isPending || isConfirming
 
   return (
     <>
@@ -302,9 +329,9 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
                   ? `Please approve ${amount} ${tokenInfo.symbol} in your wallet`
                   : `Depositing ${amount} ${tokenInfo.symbol} to your savings plan`}
               </p>
-              {hash && (
+              {currentHash && (
                 <p className="text-xs text-muted-foreground">
-                  Transaction hash: {hash.slice(0, 10)}...{hash.slice(-8)}
+                  Transaction hash: {currentHash.slice(0, 10)}...{currentHash.slice(-8)}
                 </p>
               )}
             </div>

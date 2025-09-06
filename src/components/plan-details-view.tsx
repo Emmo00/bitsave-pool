@@ -19,7 +19,7 @@ import {
   formatTokenAmount,
   type SavingsPlan 
 } from "@/contracts/hooks";
-import { SUPPORTED_TOKENS, getContractAddress, ABIS } from "@/contracts/config";
+import { SUPPORTED_TOKENS, getContractAddress, ABIS, getChainConfig } from "@/contracts/config";
 import { Address } from "viem";
 import { resolveENSOrAddress, generateFallbackAvatar } from "@/utils/ens";
 
@@ -116,10 +116,11 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
       try {
         const { readContract } = await import('viem/actions');
         const { createPublicClient, http } = await import('viem');
-        const { baseSepolia } = await import('viem/chains');
+        
+        const currentChain = getChainConfig(chainId);
         
         const publicClient = createPublicClient({
-          chain: baseSepolia,
+          chain: currentChain,
           transport: http()
         });
         

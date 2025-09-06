@@ -132,6 +132,62 @@ export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) 
   });
 }
 
+// Hook for token approval transactions
+export function useTokenApproval() {
+  const chainId = useChainId();
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const approveToken = (tokenAddress: Address, amount: string, decimals: number = 6) => {
+    return writeContract({
+      address: tokenAddress,
+      abi: ABIS.ERC20,
+      functionName: "approve",
+      args: [getContractAddress(chainId, "BITSAVE_POOLS"), parseUnits(amount, decimals)],
+    });
+  };
+
+  return {
+    approveToken,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isSuccess,
+  };
+}
+
+// Hook for deposit transactions
+export function useDeposit() {
+  const chainId = useChainId();
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const deposit = (planId: number, amount: string, decimals: number = 6) => {
+    return writeContract({
+      address: getContractAddress(chainId, "BITSAVE_POOLS"),
+      abi: ABIS.BITSAVE_POOLS,
+      functionName: "deposit",
+      args: [BigInt(planId), parseUnits(amount, decimals)],
+    });
+  };
+
+  return {
+    deposit,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isSuccess,
+  };
+}
+
 // Hook for writing contracts (transactions)
 export function useBitSaveContracts() {
   const chainId = useChainId();
@@ -149,7 +205,7 @@ export function useBitSaveContracts() {
     deadline: bigint,
     initialParticipants: Address[] = []
   ) => {
-    writeContract({
+    return writeContract({
       address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "createPlan",
@@ -164,26 +220,8 @@ export function useBitSaveContracts() {
     });
   };
 
-  const deposit = (planId: number, amount: string, decimals: number = 6) => {
-    writeContract({
-      address: getContractAddress(chainId, "BITSAVE_POOLS"),
-      abi: ABIS.BITSAVE_POOLS,
-      functionName: "deposit",
-      args: [BigInt(planId), parseUnits(amount, decimals)],
-    });
-  };
-
-  const approveToken = (tokenAddress: Address, amount: string, decimals: number = 6) => {
-    writeContract({
-      address: tokenAddress,
-      abi: ABIS.ERC20,
-      functionName: "approve",
-      args: [getContractAddress(chainId, "BITSAVE_POOLS"), parseUnits(amount, decimals)],
-    });
-  };
-
   const addParticipant = (planId: number, participant: Address) => {
-    writeContract({
+    return writeContract({
       address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "addParticipant",
@@ -192,7 +230,7 @@ export function useBitSaveContracts() {
   };
 
   const withdrawToBeneficiary = (planId: number) => {
-    writeContract({
+    return writeContract({
       address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "withdrawToBeneficiary",
@@ -201,7 +239,7 @@ export function useBitSaveContracts() {
   };
 
   const claimRefund = (planId: number) => {
-    writeContract({
+    return writeContract({
       address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "claimRefund",
@@ -210,7 +248,7 @@ export function useBitSaveContracts() {
   };
 
   const cancelPlan = (planId: number) => {
-    writeContract({
+    return writeContract({
       address: getContractAddress(chainId, "BITSAVE_POOLS"),
       abi: ABIS.BITSAVE_POOLS,
       functionName: "cancelPlan",
@@ -220,8 +258,6 @@ export function useBitSaveContracts() {
 
   return {
     createPlan,
-    deposit,
-    approveToken,
     addParticipant,
     withdrawToBeneficiary,
     claimRefund,

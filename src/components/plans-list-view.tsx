@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Users, Calendar, Target, TrendingUp } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAccount } from "wagmi"
+import { formatUnits } from "viem"
 import { SUPPORTED_TOKENS } from "@/contracts/config"
 import { useUserPlans } from "@/hooks/use-user-plans"
 
@@ -232,16 +233,16 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
   const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === plan.token.toLowerCase())
   const tokenSymbol = tokenInfo ? tokenInfo.symbol : 'Unknown'
   
-  // Format amounts
-  const formattedTarget = tokenInfo ? 
-    Number(plan.target) / (10 ** tokenInfo.decimals) : 
-    Number(plan.target)
-  const formattedDeposited = tokenInfo ? 
-    Number(plan.deposited) / (10 ** tokenInfo.decimals) : 
-    Number(plan.deposited)
-  const formattedContribution = tokenInfo ? 
-    Number(plan.myContribution) / (10 ** tokenInfo.decimals) : 
-    Number(plan.myContribution)
+  // Format amounts using formatUnits for proper decimal handling
+  const formattedTarget = tokenInfo && plan.target ? 
+    parseFloat(formatUnits(plan.target, tokenInfo.decimals)) : 
+    0
+  const formattedDeposited = tokenInfo && plan.deposited ? 
+    parseFloat(formatUnits(plan.deposited, tokenInfo.decimals)) : 
+    0
+  const formattedContribution = tokenInfo && plan.myContribution ? 
+    parseFloat(formatUnits(plan.myContribution, tokenInfo.decimals)) : 
+    0
 
   // Determine status
   const isCompleted = !plan.active || plan.cancelled || plan.withdrawn

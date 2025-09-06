@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Users, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
+import { formatUnits } from "viem";
 import { useUserPlans } from "@/hooks/use-user-plans";
 import { SUPPORTED_TOKENS } from "@/contracts/config";
 
@@ -177,13 +178,13 @@ function PlanCard({ plan }: { plan: any }) {
   const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === plan.token.toLowerCase());
   const tokenSymbol = tokenInfo ? tokenInfo.symbol : 'Unknown';
   
-  // Format amounts
-  const formattedTarget = tokenInfo ? 
-    Number(plan.target) / (10 ** tokenInfo.decimals) : 
-    Number(plan.target);
-  const formattedDeposited = tokenInfo ? 
-    Number(plan.deposited) / (10 ** tokenInfo.decimals) : 
-    Number(plan.deposited);
+  // Format amounts using formatUnits for proper decimal handling
+  const formattedTarget = tokenInfo && plan.target ? 
+    parseFloat(formatUnits(plan.target, tokenInfo.decimals)) : 
+    0;
+  const formattedDeposited = tokenInfo && plan.deposited ? 
+    parseFloat(formatUnits(plan.deposited, tokenInfo.decimals)) : 
+    0;
 
   return (
     <Card className="brutalist-card p-4 bg-white hover:brutalist-shadow-primary transition-all duration-200">

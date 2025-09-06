@@ -85,7 +85,8 @@ export function CreatePlanTransaction({ planData, onSuccess, onCancel }: CreateP
       planData.targetAmount,
       address, // beneficiary is the creator
       deadlineTimestamp,
-      participantAddresses
+      participantAddresses,
+      selectedToken.decimals
     );
   };
 

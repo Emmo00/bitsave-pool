@@ -82,7 +82,8 @@ export function ConfirmationModal({ isOpen, onClose, onConfirm, planData }: Conf
       planData.targetAmount,
       address, // beneficiary is the creator
       deadlineTimestamp,
-      participantAddresses
+      participantAddresses,
+      selectedToken.decimals
     )
   }
 

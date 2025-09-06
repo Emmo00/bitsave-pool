@@ -1,6 +1,6 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
 import { Address, parseUnits, formatUnits } from "viem";
-import { ABIS, getContractAddress } from "./config";
+import { ABIS, getContractAddress, SUPPORTED_TOKENS } from "./config";
 
 // Plan interface based on the smart contract
 export interface SavingsPlan {
@@ -15,6 +15,24 @@ export interface SavingsPlan {
   active: boolean;
   withdrawn: boolean;
   cancelled: boolean;
+}
+
+// Utility function to get token decimals from config
+export function getTokenDecimalsFromConfig(tokenAddress: Address): number | undefined {
+  const token = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+  return token?.decimals;
+}
+
+// Hook to fetch token decimals from contract
+export function useTokenDecimals(tokenAddress: Address) {
+  return useReadContract({
+    address: tokenAddress,
+    abi: ABIS.ERC20,
+    functionName: "decimals",
+    query: {
+      staleTime: Infinity, // Decimals never change, so cache forever
+    },
+  });
 }
 
 // Hook to read a specific plan
@@ -189,7 +207,7 @@ export function useTokenApproval() {
     hash,
   });
 
-  const approveToken = async (tokenAddress: Address, amount: string, decimals: number = 6) => {
+  const approveToken = async (tokenAddress: Address, amount: string, decimals: number) => {
     console.log("Calling approveToken with:", { tokenAddress, amount, decimals });
     
     try {
@@ -229,19 +247,19 @@ export function useDeposit() {
     hash,
   });
 
-  const deposit = async (planId: number, amount: string, decimals: number = 6) => {
+  const deposit = async (planId: number, amount: string, decimals: number) => {
     console.log("Calling deposit with:", { planId, amount, decimals, parsed: parseUnits(amount, decimals) });
     
     try {
-      const result = await writeContract({
+      writeContract({
         address: getContractAddress(chainId, "BITSAVE_POOLS"),
         abi: ABIS.BITSAVE_POOLS,
         functionName: "deposit",
         args: [BigInt(planId), parseUnits(amount, decimals)],
         chainId,
       });
-      console.log("Deposit transaction initiated:", result);
-      return result;
+      console.log("Deposit transaction initiated:", hash);
+      return hash;
     } catch (error) {
       console.error("Deposit transaction failed:", error);
       throw error;
@@ -273,7 +291,8 @@ export function useBitSaveContracts() {
     target: string,
     beneficiary: Address,
     deadline: bigint,
-    initialParticipants: Address[] = []
+    initialParticipants: Address[] = [],
+    decimals: number
   ) => {
     return writeContract({
       address: getContractAddress(chainId, "BITSAVE_POOLS"),
@@ -282,7 +301,7 @@ export function useBitSaveContracts() {
       args: [
         name,
         tokenAddress,
-        parseUnits(target, 6), // Assuming USDC with 6 decimals
+        parseUnits(target, decimals),
         beneficiary,
         deadline,
         initialParticipants,
@@ -341,10 +360,10 @@ export function useBitSaveContracts() {
 }
 
 // Utility functions
-export function formatTokenAmount(amount: bigint, decimals: number = 6): string {
+export function formatTokenAmount(amount: bigint, decimals: number): string {
   return formatUnits(amount, decimals);
 }
 
-export function parseTokenAmount(amount: string, decimals: number = 6): bigint {
+export function parseTokenAmount(amount: string, decimals: number): bigint {
   return parseUnits(amount, decimals);
 }

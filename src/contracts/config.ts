@@ -6,9 +6,9 @@ import ERC20_ABI from "@/abis/ERC20.json";
 // Contract addresses for different networks
 export const CONTRACT_ADDRESSES = {
   [baseSepolia.id]: {
-    BITSAVE_POOLS: "0x0fe41e38d4244D97BE207Fd1dF513E648D1bF888" as Address,
+    BITSAVE_POOLS: "0x6E31632D6A7Af8d30766AA9E216c49F5AAb846c2" as Address,
     // Common tokens on Base Sepolia
-    USDC: "0x9BeC29053DAD9B28F41ffEA16c7f20a16f79faA6" as Address, // Base Sepolia USDC
+    USDC: "0xa3d69B7217B096709170f6fc50535e6aBc084f3A" as Address, // Base Sepolia USDC
     // Add more tokens as they become available on Base Sepolia
   },
 } as const;
@@ -43,7 +43,7 @@ export const SUPPORTED_TOKENS = [
   {
     symbol: "USDC",
     name: "USD Coin",
-    decimals: 6,
+    decimals: 18,
     address: CONTRACT_ADDRESSES[baseSepolia.id].USDC,
   },
   // Note: Add more tokens here as they become available on Base Sepolia

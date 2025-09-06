@@ -147,12 +147,23 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
 
   // Calculate summary data
   const userSavingsData: UserSavingsData = useMemo(() => {
-    const totalSavedBigInt = enhancedPlans.reduce((sum, plan) => {
-      return sum + plan.userContribution;
+    // Convert all amounts to common decimal (18) for aggregation
+    const totalSavedInCommonDecimals = enhancedPlans.reduce((sum, plan) => {
+      // Convert from plan's decimals to 18 decimals for consistent aggregation
+      const scaleFactor = 18 - plan.tokenDecimals;
+      const scaledAmount = scaleFactor >= 0 
+        ? plan.userContribution * (10n ** BigInt(scaleFactor))
+        : plan.userContribution / (10n ** BigInt(-scaleFactor));
+      return sum + scaledAmount;
     }, 0n);
 
-    const totalTargetsBigInt = enhancedPlans.reduce((sum, plan) => {
-      return sum + plan.target;
+    const totalTargetsInCommonDecimals = enhancedPlans.reduce((sum, plan) => {
+      // Convert from plan's decimals to 18 decimals for consistent aggregation
+      const scaleFactor = 18 - plan.tokenDecimals;
+      const scaledAmount = scaleFactor >= 0 
+        ? plan.target * (10n ** BigInt(scaleFactor))
+        : plan.target / (10n ** BigInt(-scaleFactor));
+      return sum + scaledAmount;
     }, 0n);
 
     return {
@@ -160,8 +171,8 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
       totalPlans: enhancedPlans.length,
       activePlans: enhancedPlans.filter((p) => p.active && !p.isExpired).length,
       completedPlans: enhancedPlans.filter((p) => p.progressPercentage >= 100).length,
-      totalSaved: formatTokenAmount(totalSavedBigInt, 6), // Assuming USDC decimals
-      totalTargets: formatTokenAmount(totalTargetsBigInt, 6),
+      totalSaved: formatTokenAmount(totalSavedInCommonDecimals, 18), // Using 18 decimals for aggregated display
+      totalTargets: formatTokenAmount(totalTargetsInCommonDecimals, 18),
       isLoading: isLoadingPlanIds,
       error: planIdsError?.message || null,
       refetch: () => {

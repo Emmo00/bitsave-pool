@@ -103,11 +103,8 @@ export function useUserPlans() {
         deposited,
         tokenInfo,
         supportedTokens: SUPPORTED_TOKENS,
-        targetFormatted: tokenInfo ? formatUnits(target, tokenInfo.decimals) : 'NO_TOKEN_INFO',
-        depositedFormatted: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : 'NO_TOKEN_INFO',
-        // Try with hardcoded 6 decimals for USDC
-        targetFormattedHardcoded: formatUnits(target, 6),
-        depositedFormattedHardcoded: formatUnits(deposited, 6),
+        targetFormatted: tokenInfo ? formatUnits(target, tokenInfo.decimals) : 'UNKNOWN_TOKEN',
+        depositedFormatted: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : 'UNKNOWN_TOKEN',
         participants: participants.length,
         participantAddresses: participants,
       });
@@ -126,9 +123,9 @@ export function useUserPlans() {
         cancelled,
         participants,
         myContribution,
-        formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : formatUnits(myContribution, 6),
-        formattedTarget: tokenInfo ? formatUnits(target, tokenInfo.decimals) : formatUnits(target, 6),
-        formattedDeposited: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : formatUnits(deposited, 6),
+        formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : 'UNKNOWN_TOKEN',
+        formattedTarget: tokenInfo ? formatUnits(target, tokenInfo.decimals) : 'UNKNOWN_TOKEN',
+        formattedDeposited: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : 'UNKNOWN_TOKEN',
       });
     });
     

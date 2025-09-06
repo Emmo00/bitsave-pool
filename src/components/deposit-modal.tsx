@@ -41,6 +41,7 @@ const depositSteps = [
 export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalProps) {
   const [amount, setAmount] = useState("")
   const [currentStep, setCurrentStep] = useState<DepositStep>(DepositStep.FORM)
+  const [shouldAutoDeposit, setShouldAutoDeposit] = useState(false)
   // Remove unused chainId variable
   const { address: userAddress } = useAccount()
   const { toast } = useToast()
@@ -82,21 +83,17 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   // Get user's token balance
   const { data: tokenBalance } = useTokenBalance(tokenInfo.address, userAddress)
   
-  // Get user's token allowance
-  const { data: tokenAllowance, refetch: refetchAllowance } = useTokenAllowance(tokenInfo.address, userAddress)
+  // Get user's token allowance for refetching after approval
+  const { refetch: refetchAllowance } = useTokenAllowance(tokenInfo.address, userAddress)
   
   // Format balances
   const formattedBalance = tokenBalance && typeof tokenBalance === 'bigint'
     ? formatTokenAmount(tokenBalance, tokenInfo.decimals)
     : "0"
-  
-  const formattedAllowance = tokenAllowance && typeof tokenAllowance === 'bigint'
-    ? formatTokenAmount(tokenAllowance, tokenInfo.decimals)
-    : "0"
 
   const parsedAmount = amount ? parseFloat(amount) : 0
   const isValidAmount = parsedAmount > 0 && parsedAmount <= parseFloat(formattedBalance)
-  const needsApproval = parsedAmount > parseFloat(formattedAllowance)
+  const needsApproval = parsedAmount > 0 // Always require approval when depositing any amount
   const needsToJoin = !isParticipant && userAddress?.toLowerCase() !== plan.owner.toLowerCase()
 
   // Combine states for UI logic
@@ -110,6 +107,7 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
     if (!isOpen) {
       setCurrentStep(DepositStep.FORM)
       setAmount("")
+      setShouldAutoDeposit(false)
     }
   }, [isOpen])
 
@@ -118,6 +116,7 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
     if (!isOpen) {
       setCurrentStep(DepositStep.FORM)
       setAmount("")
+      setShouldAutoDeposit(false)
     }
   }, [isOpen])
 
@@ -138,18 +137,40 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   // Handle approval completion
   useEffect(() => {
     if (isApprovalSuccess && currentStep === DepositStep.APPROVE) {
-      console.log("Approval completed successfully")
+      console.log("Approval completed successfully, setting auto-deposit flag")
       // Approval completed, refetch allowance
       refetchAllowance()
       toast({
         title: "Approval Successful!",
-        description: `Approved ${amount} ${tokenInfo.symbol} for spending. You can now proceed with the deposit.`,
+        description: `Approved ${amount} ${tokenInfo.symbol} for spending. Proceeding with deposit...`,
       })
       
-      // Reset to form to allow user to manually trigger deposit
+      // Set flag to auto-proceed to deposit
+      setShouldAutoDeposit(true)
       setCurrentStep(DepositStep.FORM)
     }
   }, [isApprovalSuccess, currentStep, amount, tokenInfo.symbol, refetchAllowance, toast])
+
+  // Handle auto-deposit after approval
+  useEffect(() => {
+    if (shouldAutoDeposit && currentStep === DepositStep.FORM && isValidAmount) {
+      console.log("Auto-proceeding to deposit after approval")
+      setShouldAutoDeposit(false)
+      // Short delay to ensure approval transaction is fully processed
+      setTimeout(() => {
+        setCurrentStep(DepositStep.DEPOSIT)
+        deposit(parseInt(plan.id), amount, tokenInfo.decimals).catch((error) => {
+          console.error("Auto-deposit failed:", error)
+          toast({
+            title: "Deposit Failed",
+            description: (error as BaseError)?.message || "Failed to deposit funds",
+            variant: "destructive",
+          })
+          setCurrentStep(DepositStep.FORM)
+        })
+      }, 500)
+    }
+  }, [shouldAutoDeposit, currentStep, isValidAmount, amount, plan.id, tokenInfo.decimals, deposit, toast])
 
   // Handle deposit completion
   useEffect(() => {
@@ -256,7 +277,7 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
       console.log("User needs to join plan first")
       handleJoinPlan()
     } else if (needsApproval) {
-      console.log("Approval needed, starting approval process")
+      console.log("Starting approval process (always required for deposits)")
       handleApprove()
     } else {
       console.log("No approval needed, proceeding directly to deposit")
@@ -327,16 +348,14 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
                 <span className="text-sm text-muted-foreground">Transaction type:</span>
                 <span className="text-sm font-medium">
                   {needsToJoin 
-                    ? needsApproval ? "3-Step Process" : "2-Step Process"
-                    : needsApproval ? "2-Step Process" : "Direct Deposit"}
+                    ? "3-Step Process"
+                    : "2-Step Process"}
                 </span>
               </div>
               {(needsToJoin || needsApproval) && (
                 <div className="text-xs text-muted-foreground">
-                  {needsToJoin && needsApproval 
+                  {needsToJoin 
                     ? "Step 1: Join plan, Step 2: Approve token, Step 3: Deposit"
-                    : needsToJoin
-                    ? "Step 1: Join plan, Step 2: Deposit"
                     : "Step 1: Approve token spending, Step 2: Deposit"}
                 </div>
               )}
@@ -353,11 +372,11 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
               >
                 {isProcessing 
                   ? "Processing..." 
+                  : shouldAutoDeposit
+                  ? "Proceeding to Deposit..."
                   : needsToJoin 
                   ? "Join Plan" 
-                  : needsApproval 
-                  ? "Approve Token" 
-                  : "Deposit"}
+                  : "Approve Token"}
               </Button>
             </div>
           </div>

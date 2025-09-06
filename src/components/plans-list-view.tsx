@@ -234,14 +234,14 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
   const tokenSymbol = tokenInfo ? tokenInfo.symbol : 'Unknown'
   
   // Format amounts using formatUnits for proper decimal handling
-  const formattedTarget = tokenInfo && plan.target ? 
-    parseFloat(formatUnits(plan.target, tokenInfo.decimals)) : 
+  const formattedTarget = tokenInfo ? 
+    parseFloat(formatUnits(BigInt(plan.target || 0), tokenInfo.decimals)) : 
     0
-  const formattedDeposited = tokenInfo && plan.deposited ? 
-    parseFloat(formatUnits(plan.deposited, tokenInfo.decimals)) : 
+  const formattedDeposited = tokenInfo ? 
+    parseFloat(formatUnits(BigInt(plan.deposited || 0), tokenInfo.decimals)) : 
     0
-  const formattedContribution = tokenInfo && plan.myContribution ? 
-    parseFloat(formatUnits(plan.myContribution, tokenInfo.decimals)) : 
+  const formattedContribution = tokenInfo ? 
+    parseFloat(formatUnits(BigInt(plan.myContribution || 0), tokenInfo.decimals)) : 
     0
 
   // Determine status

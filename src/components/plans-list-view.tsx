@@ -233,16 +233,32 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
   const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === plan.token.toLowerCase())
   const tokenSymbol = tokenInfo ? tokenInfo.symbol : 'Unknown'
   
-  // Format amounts using formatUnits for proper decimal handling
-  const formattedTarget = tokenInfo ? 
-    parseFloat(formatUnits(BigInt(plan.target || 0), tokenInfo.decimals)) : 
-    0
-  const formattedDeposited = tokenInfo ? 
-    parseFloat(formatUnits(BigInt(plan.deposited || 0), tokenInfo.decimals)) : 
-    0
-  const formattedContribution = tokenInfo ? 
-    parseFloat(formatUnits(BigInt(plan.myContribution || 0), tokenInfo.decimals)) : 
-    0
+  // Debug logging
+  console.log('Enhanced Plan Card data:', {
+    id: plan.id,
+    target: plan.target,
+    deposited: plan.deposited,
+    targetType: typeof plan.target,
+    depositedType: typeof plan.deposited,
+    tokenInfo
+  });
+  
+  // Format amounts - use the pre-formatted values from the hook
+  const formattedTarget = parseFloat(plan.formattedTarget || '0')
+  const formattedDeposited = parseFloat(plan.formattedDeposited || '0')
+  const formattedContribution = parseFloat(plan.formattedContribution || '0')
+
+  console.log('Enhanced Formatted amounts:', {
+    formattedTarget,
+    formattedDeposited,
+    formattedContribution,
+    planFormattedTarget: plan.formattedTarget,
+    planFormattedDeposited: plan.formattedDeposited,
+    planFormattedContribution: plan.formattedContribution,
+    rawTarget: plan.target,
+    rawDeposited: plan.deposited,
+    rawContribution: plan.myContribution
+  });
 
   // Determine status
   const isCompleted = !plan.active || plan.cancelled || plan.withdrawn

@@ -19,6 +19,8 @@ export interface UserPlanSummary {
   participants: Address[];
   myContribution: bigint;
   formattedContribution: string;
+  formattedTarget: string;
+  formattedDeposited: string;
 }
 
 export function useUserPlans() {
@@ -96,6 +98,8 @@ export function useUserPlans() {
         participants: [],
         myContribution,
         formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : '0',
+        formattedTarget: tokenInfo ? formatUnits(target, tokenInfo.decimals) : '0',
+        formattedDeposited: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : '0',
       });
     });
     

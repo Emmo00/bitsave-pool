@@ -9,7 +9,6 @@ import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Users, Calendar, Target, TrendingUp } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAccount } from "wagmi"
-import { formatDistanceToNow } from "date-fns"
 import { SUPPORTED_TOKENS } from "@/contracts/config"
 import { useUserPlans } from "@/hooks/use-user-plans"
 

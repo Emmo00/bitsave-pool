@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 
 export interface PlanData {
   id: number;
+  name: string;
   owner: Address;
   beneficiary: Address;
   token: Address;
@@ -78,15 +79,16 @@ export function usePlanData(planId: string) {
 
   const plan: PlanData | null = planData ? {
     id: Number((planData as any)[0]),
-    owner: (planData as any)[1] as Address,
-    beneficiary: (planData as any)[2] as Address,
-    token: (planData as any)[3] as Address,
-    target: (planData as any)[4] as bigint,
-    deposited: (planData as any)[5] as bigint,
-    deadline: (planData as any)[6] as bigint,
-    active: (planData as any)[7] as boolean,
-    withdrawn: (planData as any)[8] as boolean,
-    cancelled: (planData as any)[9] as boolean,
+    name: (planData as any)[1] as string,
+    owner: (planData as any)[2] as Address,
+    beneficiary: (planData as any)[3] as Address,
+    token: (planData as any)[4] as Address,
+    target: (planData as any)[5] as bigint,
+    deposited: (planData as any)[6] as bigint,
+    deadline: (planData as any)[7] as bigint,
+    active: (planData as any)[8] as boolean,
+    withdrawn: (planData as any)[9] as boolean,
+    cancelled: (planData as any)[10] as boolean,
     participants: participantsList || [],
   } : null;
 

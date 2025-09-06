@@ -54,8 +54,6 @@ export function PlansList() {
     address && plan.owner.toLowerCase() !== address.toLowerCase()
   );
 
-  const activePlans = plans.filter(plan => plan.active && !plan.cancelled && !plan.withdrawn);
-
   if (plans.length === 0) {
     return (
       <div className="space-y-6">

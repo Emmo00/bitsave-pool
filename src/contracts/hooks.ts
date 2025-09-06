@@ -106,6 +106,7 @@ export function useBitSaveContracts() {
   });
 
   const createPlan = (
+    name: string,
     tokenAddress: Address,
     target: string,
     beneficiary: Address,
@@ -117,6 +118,7 @@ export function useBitSaveContracts() {
       abi: ABIS.BITSAVE_POOLS,
       functionName: "createPlan",
       args: [
+        name,
         tokenAddress,
         parseUnits(target, 6), // Assuming USDC with 6 decimals
         beneficiary,

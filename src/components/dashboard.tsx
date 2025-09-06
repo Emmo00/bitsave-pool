@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { HeroSection } from "./hero-section";
 import { PreviewCards } from "./preview-cards";
 import { BottomNavigation } from "./bottom-navigation";
-import { PlansList } from "./plans-list";
 
 export function Dashboard() {
   const [mounted, setMounted] = useState(false);

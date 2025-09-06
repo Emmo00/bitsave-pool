@@ -80,6 +80,7 @@ export function CreatePlanTransaction({ planData, onSuccess, onCancel }: CreateP
     const participantAddresses = planData.participants.map(p => p.address as `0x${string}`);
 
     createPlan(
+      planData.planName,
       selectedToken.address,
       planData.targetAmount,
       address, // beneficiary is the creator

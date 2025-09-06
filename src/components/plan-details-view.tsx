@@ -28,9 +28,12 @@ interface PlanDetailsViewProps {
 }
 
 // Helper function to get token info by address
-function getTokenInfo(tokenAddress: Address) {
+function getTokenInfo(tokenAddress: Address | undefined) {
+  if (!tokenAddress) {
+    return SUPPORTED_TOKENS[0]; // Default to first token if address is undefined
+  }
   return SUPPORTED_TOKENS.find(token => 
-    token.address.toLowerCase() === tokenAddress.toLowerCase()
+    token.address && token.address.toLowerCase() === tokenAddress.toLowerCase()
   ) || SUPPORTED_TOKENS[0]; // Default to first token if not found
 }
 
@@ -239,18 +242,18 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   }
 
   const plan = planData as SavingsPlan;
-  const tokenInfo = getTokenInfo(plan.token);
+  const tokenInfo = getTokenInfo(plan?.token);
   
-  // Calculate plan metrics
-  const targetAmount = parseFloat(formatTokenAmount(plan.target, tokenInfo.decimals));
-  const currentAmount = parseFloat(formatTokenAmount(plan.deposited, tokenInfo.decimals));
+  // Calculate plan metrics with safety checks
+  const targetAmount = plan?.target ? parseFloat(formatTokenAmount(plan.target, tokenInfo.decimals)) : 0;
+  const currentAmount = plan?.deposited ? parseFloat(formatTokenAmount(plan.deposited, tokenInfo.decimals)) : 0;
   const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
   
-  // Plan status
-  const isOwner = userAddress && plan.owner.toLowerCase() === userAddress.toLowerCase();
+  // Plan status with safety checks
+  const isOwner = userAddress && plan?.owner && plan.owner.toLowerCase() === userAddress.toLowerCase();
   const isCompleted = progress >= 100;
-  const isCancelled = plan.cancelled;
-  const isActive = plan.active && !plan.cancelled && !plan.withdrawn;
+  const isCancelled = plan?.cancelled || false;
+  const isActive = plan?.active && !plan?.cancelled && !plan?.withdrawn;
   const canWithdraw = isOwner && (isCompleted || isCancelled);
   
   // Calculate days left
@@ -459,7 +462,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                             <p className="font-medium text-foreground">
                               {participant.displayName}
                             </p>
-                            {participant.address.toLowerCase() === plan.owner.toLowerCase() && (
+                            {participant.address && plan?.owner && participant.address.toLowerCase() === plan.owner.toLowerCase() && (
                               <Badge variant="secondary" className="text-xs">
                                 Owner
                               </Badge>

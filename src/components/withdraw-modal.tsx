@@ -1,43 +1,59 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Download, Check, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { useWithdraw } from "@/contracts/hooks"
 
 interface WithdrawModalProps {
   isOpen: boolean
   onClose: () => void
   plan: any
+  onSuccess?: () => void
 }
 
-export function WithdrawModal({ isOpen, onClose, plan }: WithdrawModalProps) {
-  const [isWithdrawing, setIsWithdrawing] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
+export function WithdrawModal({ isOpen, onClose, plan, onSuccess }: WithdrawModalProps) {
+  const { withdrawToBeneficiary, isPending, isConfirming, isSuccess, error } = useWithdraw()
+  const [hasCompletedWithdraw, setHasCompletedWithdraw] = useState(false)
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setHasCompletedWithdraw(false)
+    }
+  }, [isOpen])
+
+  // Handle successful withdrawal
+  useEffect(() => {
+    if (isSuccess && !hasCompletedWithdraw) {
+      setHasCompletedWithdraw(true)
+      onSuccess?.() // Call refresh function from parent
+      
+      // Close modal after success
+      setTimeout(() => {
+        onClose()
+      }, 2000)
+    }
+  }, [isSuccess, hasCompletedWithdraw, onSuccess, onClose])
 
   const handleWithdraw = async () => {
-    setIsWithdrawing(true)
-
-    // Simulate withdrawal process
-    await new Promise((resolve) => setTimeout(resolve, 3000))
-
-    setIsWithdrawing(false)
-    setIsSuccess(true)
-
-    // Close modal after success
-    setTimeout(() => {
-      setIsSuccess(false)
-      onClose()
-    }, 2000)
+    try {
+      await withdrawToBeneficiary(Number(plan.id))
+    } catch (error) {
+      console.error("Withdrawal failed:", error)
+    }
   }
 
   const handleClose = () => {
-    if (!isWithdrawing) {
-      setIsSuccess(false)
+    if (!isPending && !isConfirming) {
+      setHasCompletedWithdraw(false)
       onClose()
     }
   }
+
+  const isProcessing = isPending || isConfirming
 
   return (
     <AnimatePresence>
@@ -58,7 +74,7 @@ export function WithdrawModal({ isOpen, onClose, plan }: WithdrawModalProps) {
             className="w-full max-w-md"
           >
             <Card className="liquid-glass rounded-3xl p-6 border border-white/20">
-              {!isSuccess ? (
+              {!hasCompletedWithdraw ? (
                 <>
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-foreground">Withdraw Funds</h2>
@@ -67,7 +83,7 @@ export function WithdrawModal({ isOpen, onClose, plan }: WithdrawModalProps) {
                       size="sm"
                       onClick={handleClose}
                       className="p-1 h-auto"
-                      disabled={isWithdrawing}
+                      disabled={isProcessing}
                     >
                       <X className="w-5 h-5" />
                     </Button>
@@ -78,7 +94,7 @@ export function WithdrawModal({ isOpen, onClose, plan }: WithdrawModalProps) {
                       <AlertTriangle className="w-5 h-5 text-green-600" />
                       <div>
                         <p className="text-sm font-medium text-green-700">Target Reached!</p>
-                        <p className="text-xs text-green-600">You can now withdraw the funds.</p>
+                        <p className="text-xs text-green-600">You can now withdraw the funds to the beneficiary.</p>
                       </div>
                     </div>
 
@@ -90,41 +106,51 @@ export function WithdrawModal({ isOpen, onClose, plan }: WithdrawModalProps) {
                       <div className="flex justify-between p-3 rounded-xl bg-white/10">
                         <span className="text-muted-foreground">Total Amount:</span>
                         <span className="font-medium text-foreground">
-                          ${plan.current.toLocaleString()} {plan.token}
+                          {plan.current.toLocaleString()} {plan.token}
                         </span>
                       </div>
                       <div className="flex justify-between p-3 rounded-xl bg-white/10">
-                        <span className="text-muted-foreground">Participants:</span>
-                        <span className="font-medium text-foreground">{plan.participants}</span>
+                        <span className="text-muted-foreground">Beneficiary:</span>
+                        <span className="font-medium text-foreground">{plan.beneficiary}</span>
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/20">
-                      <p className="text-sm text-orange-700">
-                        <strong>Note:</strong> This action will distribute the funds to all participants based on their
-                        contributions and mark the plan as completed.
+                    <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                      <p className="text-sm text-blue-700">
+                        <strong>Note:</strong> This action will withdraw all funds to the beneficiary address 
+                        and mark the plan as "withdrawn".
                       </p>
                     </div>
+
+                    {error && (
+                      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
+                        <p className="text-sm text-red-700">
+                          <strong>Error:</strong> {error.message || "Withdrawal failed. Please try again."}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <Button
                     onClick={handleWithdraw}
-                    disabled={isWithdrawing}
+                    disabled={isProcessing}
                     className="w-full h-12 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-semibold"
                   >
-                    {isWithdrawing ? (
+                    {isProcessing ? (
                       <div className="flex items-center gap-2">
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
                           className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
                         />
-                        <span>Processing Withdrawal...</span>
+                        <span>
+                          {isPending ? "Confirming..." : "Processing Withdrawal..."}
+                        </span>
                       </div>
                     ) : (
                       <>
                         <Download className="w-4 h-4 mr-2" />
-                        Withdraw ${plan.current.toLocaleString()}
+                        Withdraw {plan.current.toLocaleString()} {plan.token}
                       </>
                     )}
                   </Button>
@@ -141,7 +167,7 @@ export function WithdrawModal({ isOpen, onClose, plan }: WithdrawModalProps) {
                   </motion.div>
                   <h3 className="text-xl font-bold text-foreground mb-2">Withdrawal Complete!</h3>
                   <p className="text-muted-foreground">
-                    Funds have been distributed to all participants. Plan marked as completed.
+                    Funds have been withdrawn to the beneficiary. Plan status updated to "withdrawn".
                   </p>
                 </div>
               )}

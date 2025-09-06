@@ -310,6 +310,54 @@ export function useDeposit() {
   };
 }
 
+// Hook for withdrawal transactions
+export function useWithdraw() {
+  const chainId = useChainId();
+  const queryClient = useQueryClient();
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  // Invalidate relevant queries when withdrawal is successful
+  useEffect(() => {
+    if (isSuccess && hash) {
+      // Invalidate all plan-related queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+      console.log("Queries invalidated after successful withdrawal");
+    }
+  }, [isSuccess, hash, queryClient]);
+
+  const withdrawToBeneficiary = async (planId: number) => {
+    console.log("Calling withdrawToBeneficiary with planId:", planId);
+    
+    try {
+      writeContract({
+        address: getContractAddress(chainId, "BITSAVE_POOLS"),
+        abi: ABIS.BITSAVE_POOLS,
+        functionName: "withdrawToBeneficiary",
+        args: [BigInt(planId)],
+        chainId,
+      });
+      console.log("Withdrawal transaction initiated:", hash);
+      return hash;
+    } catch (error) {
+      console.error("Withdrawal transaction failed:", error);
+      throw error;
+    }
+  };
+
+  return {
+    withdrawToBeneficiary,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isSuccess,
+  };
+}
+
 // Hook for writing contracts (transactions)
 export function useBitSaveContracts() {
   const chainId = useChainId();

@@ -631,6 +631,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
         plan={planForModals}
+        onSuccess={refreshPlanData}
       />
 
       <CancelModal 

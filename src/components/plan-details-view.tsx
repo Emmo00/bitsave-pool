@@ -87,8 +87,8 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   }
 
   // Fetch onchain data
-  const { data: planData, isLoading: planLoading, error: planError } = usePlan(numericPlanId);
-  const { data: participantsData } = usePlanParticipants(numericPlanId);
+  const { data: planData, isLoading: planLoading, error: planError, refetch: refetchPlan } = usePlan(numericPlanId);
+  const { data: participantsData, refetch: refetchParticipants } = usePlanParticipants(numericPlanId);
   const { data: nextPlanId } = useNextPlanId();
 
   // Debug logging
@@ -129,6 +129,20 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     deposited: planObject?.deposited,
     name: planObject?.name
   });
+
+  // Function to refresh plan data after successful transactions
+  const refreshPlanData = async () => {
+    console.log('Refreshing plan data...');
+    try {
+      await refetchPlan();
+      await refetchParticipants();
+      // Clear contribution data to force re-fetch
+      setContributionData({});
+      setParticipantsWithEns([]);
+    } catch (error) {
+      console.error('Error refreshing plan data:', error);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -610,6 +624,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
         isOpen={showDepositModal}
         onClose={() => setShowDepositModal(false)}
         plan={planForModals}
+        onSuccess={refreshPlanData}
       />
 
       <WithdrawModal

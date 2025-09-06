@@ -1,6 +1,8 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import { Address, parseUnits, formatUnits } from "viem";
 import { ABIS, getContractAddress, SUPPORTED_TOKENS } from "./config";
+import { useEffect } from "react";
 
 // Plan interface based on the smart contract
 export interface SavingsPlan {
@@ -178,11 +180,21 @@ export function useTokenAllowance(tokenAddress: Address, userAddress?: Address) 
 // Hook for adding participants
 export function useAddParticipant() {
   const chainId = useChainId();
+  const queryClient = useQueryClient();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
 
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+
+  // Invalidate relevant queries when adding participant is successful
+  useEffect(() => {
+    if (isSuccess && hash) {
+      // Invalidate all plan-related queries to refresh participant data
+      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+      console.log("Queries invalidated after successfully adding participant");
+    }
+  }, [isSuccess, hash, queryClient]);
 
   const addParticipant = async (planId: number, participant: Address) => {
     console.log("Adding participant:", { planId, participant });
@@ -253,11 +265,21 @@ export function useTokenApproval() {
 // Hook for deposit transactions
 export function useDeposit() {
   const chainId = useChainId();
+  const queryClient = useQueryClient();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
 
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+
+  // Invalidate relevant queries when deposit is successful
+  useEffect(() => {
+    if (isSuccess && hash) {
+      // Invalidate all plan-related queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+      console.log("Queries invalidated after successful deposit");
+    }
+  }, [isSuccess, hash, queryClient]);
 
   const deposit = async (planId: number, amount: string, decimals: number) => {
     console.log("Calling deposit with:", { planId, amount, decimals, parsed: parseUnits(amount, decimals) });
@@ -291,11 +313,21 @@ export function useDeposit() {
 // Hook for writing contracts (transactions)
 export function useBitSaveContracts() {
   const chainId = useChainId();
+  const queryClient = useQueryClient();
   const { writeContract, data: hash, error, isPending } = useWriteContract();
 
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
     hash,
   });
+
+  // Invalidate relevant queries when any transaction is successful
+  useEffect(() => {
+    if (isSuccess && hash) {
+      // Invalidate all plan-related queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['readContract'] });
+      console.log("Queries invalidated after successful transaction");
+    }
+  }, [isSuccess, hash, queryClient]);
 
   const createPlan = (
     name: string,

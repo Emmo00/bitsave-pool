@@ -64,7 +64,7 @@ export function CreateSavingsFlow() {
         className="sticky top-0 bg-background/95 backdrop-blur-lg border-b border-border z-10"
       >
         <div className="flex items-center justify-between p-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="p-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="p-2">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-xl font-bold text-foreground">Create Savings Plan</h1>

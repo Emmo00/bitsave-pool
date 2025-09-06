@@ -56,8 +56,18 @@ export function useUserPlans() {
     })) || [],
   });
 
+  // Get participants for each plan
+  const { data: planParticipants, isLoading: loadingParticipants } = useReadContracts({
+    contracts: (planIds as bigint[] | undefined)?.map((id) => ({
+      address: contractAddress,
+      abi: ABIS.BITSAVE_POOLS as Abi,
+      functionName: 'getParticipants',
+      args: [id],
+    })) || [],
+  });
+
   const plans: UserPlanSummary[] = useMemo(() => {
-    if (!plansData || !planIds || !myContributions) return [];
+    if (!plansData || !planIds || !myContributions || !planParticipants) return [];
     
     // Create a map to deduplicate plans by ID
     const planMap = new Map<number, UserPlanSummary>();
@@ -79,7 +89,9 @@ export function useUserPlans() {
       const active = (planData.result as any)[8] as boolean;
       const withdrawn = (planData.result as any)[9] as boolean;
       const cancelled = (planData.result as any)[10] as boolean;
-      // participants not available here, would need extra call if needed
+      
+      // Get participants from the participants array
+      const participants = (planParticipants[i]?.result as Address[]) || [];
       const myContribution = myContributions[i]?.result as bigint || 0n;
       const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === token.toLowerCase());
       
@@ -96,10 +108,9 @@ export function useUserPlans() {
         // Try with hardcoded 6 decimals for USDC
         targetFormattedHardcoded: formatUnits(target, 6),
         depositedFormattedHardcoded: formatUnits(deposited, 6),
+        participants: participants.length,
+        participantAddresses: participants,
       });
-      
-      // Temporarily use hardcoded 6 decimals if no tokenInfo found
-      const actualTokenInfo = tokenInfo || { decimals: 6 };
       
       planMap.set(id, {
         id,
@@ -113,7 +124,7 @@ export function useUserPlans() {
         active,
         withdrawn,
         cancelled,
-        participants: [],
+        participants,
         myContribution,
         formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : formatUnits(myContribution, 6),
         formattedTarget: tokenInfo ? formatUnits(target, tokenInfo.decimals) : formatUnits(target, 6),
@@ -122,11 +133,11 @@ export function useUserPlans() {
     });
     
     return Array.from(planMap.values());
-  }, [plansData, planIds, myContributions]);
+  }, [plansData, planIds, myContributions, planParticipants]);
 
   return {
     plans,
-    loading: loadingPlanIds || loadingPlans || loadingContributions,
+    loading: loadingPlanIds || loadingPlans || loadingContributions || loadingParticipants,
     address,
   };
 }

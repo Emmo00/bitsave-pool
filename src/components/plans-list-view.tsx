@@ -9,7 +9,6 @@ import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, Users, Calendar, Target, TrendingUp } from "lucide-react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAccount } from "wagmi"
-import { formatUnits } from "viem"
 import { SUPPORTED_TOKENS } from "@/contracts/config"
 import { useUserPlans } from "@/hooks/use-user-plans"
 
@@ -311,7 +310,7 @@ function EnhancedPlanCard({ plan }: { plan: any }) {
               <Users className="w-3 h-3" />
               <span className="text-xs">Participants</span>
             </div>
-            <p className="font-semibold text-foreground">{plan.participants?.length ?? '-'}</p>
+            <p className="font-semibold text-foreground">{plan.participants?.length || 0}</p>
           </div>
 
           <div className="text-center">

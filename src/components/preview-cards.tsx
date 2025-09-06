@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Users, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAccount } from "wagmi";
-import { formatUnits } from "viem";
 import { useUserPlans } from "@/hooks/use-user-plans";
 import { SUPPORTED_TOKENS } from "@/contracts/config";
 
@@ -235,7 +234,7 @@ function PlanCard({ plan }: { plan: any }) {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Users className="w-3 h-3" />
-            <span className="font-bold uppercase">{plan.participants || 1} PARTICIPANTS</span>
+            <span className="font-bold uppercase">{plan.participants?.length || 0} PARTICIPANTS</span>
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />

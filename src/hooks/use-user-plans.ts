@@ -83,6 +83,24 @@ export function useUserPlans() {
       const myContribution = myContributions[i]?.result as bigint || 0n;
       const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === token.toLowerCase());
       
+      // Debug logging
+      console.log('Hook formatting debug:', {
+        id,
+        token,
+        target,
+        deposited,
+        tokenInfo,
+        supportedTokens: SUPPORTED_TOKENS,
+        targetFormatted: tokenInfo ? formatUnits(target, tokenInfo.decimals) : 'NO_TOKEN_INFO',
+        depositedFormatted: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : 'NO_TOKEN_INFO',
+        // Try with hardcoded 6 decimals for USDC
+        targetFormattedHardcoded: formatUnits(target, 6),
+        depositedFormattedHardcoded: formatUnits(deposited, 6),
+      });
+      
+      // Temporarily use hardcoded 6 decimals if no tokenInfo found
+      const actualTokenInfo = tokenInfo || { decimals: 6 };
+      
       planMap.set(id, {
         id,
         name,
@@ -97,9 +115,9 @@ export function useUserPlans() {
         cancelled,
         participants: [],
         myContribution,
-        formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : '0',
-        formattedTarget: tokenInfo ? formatUnits(target, tokenInfo.decimals) : '0',
-        formattedDeposited: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : '0',
+        formattedContribution: tokenInfo ? formatUnits(myContribution, tokenInfo.decimals) : formatUnits(myContribution, 6),
+        formattedTarget: tokenInfo ? formatUnits(target, tokenInfo.decimals) : formatUnits(target, 6),
+        formattedDeposited: tokenInfo ? formatUnits(deposited, tokenInfo.decimals) : formatUnits(deposited, 6),
       });
     });
     

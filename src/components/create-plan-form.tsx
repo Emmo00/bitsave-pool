@@ -376,7 +376,7 @@ export function CreatePlanForm({ initialData, onSubmit, onNext }: CreatePlanForm
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.3 }}
-        className="fixed bottom-20 left-4 right-4"
+        className="fixed bottom-10 left-4 right-4"
       >
         <Button
           type="submit"

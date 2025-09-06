@@ -136,7 +136,8 @@ function PlanCard({ plan, index }: { plan: any; index: number }) {
   
   // Calculate progress and formatting
   const progress = plan.target && plan.target > 0n ? Number(plan.deposited) / Number(plan.target) * 100 : 0;
-  const deadlineDate = plan.deadline ? new Date(Number(plan.deadline) * 1000) : null;
+  const deadlineTimestamp = plan.deadline ? Number(plan.deadline) * 1000 : 0;
+  const deadlineDate = deadlineTimestamp > 0 && !isNaN(deadlineTimestamp) ? new Date(deadlineTimestamp) : null;
   const now = new Date();
   const isExpired = deadlineDate && now > deadlineDate;
   const daysLeft = deadlineDate ? Math.max(0, Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;

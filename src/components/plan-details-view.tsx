@@ -256,9 +256,12 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   const isActive = plan?.active && !plan?.cancelled && !plan?.withdrawn;
   const canWithdraw = isOwner && (isCompleted || isCancelled);
   
-  // Calculate days left
-  const deadlineTimestamp = Number(plan.deadline) * 1000; // Convert to milliseconds
-  const daysLeft = Math.ceil((deadlineTimestamp - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  // Calculate days left with safety checks
+  const deadlineTimestamp = plan?.deadline ? Number(plan.deadline) * 1000 : Date.now(); // Convert to milliseconds
+  const isValidTimestamp = deadlineTimestamp && deadlineTimestamp > 0 && !isNaN(deadlineTimestamp);
+  const daysLeft = isValidTimestamp 
+    ? Math.ceil((deadlineTimestamp - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   // Create plan object in expected format for modals
   const planForModals = {
@@ -268,9 +271,9 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     target: targetAmount,
     current: currentAmount,
     participants: participants.length,
-    deadline: new Date(deadlineTimestamp).toISOString().split('T')[0],
+    deadline: isValidTimestamp ? new Date(deadlineTimestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     status: isActive ? "active" as const : isCancelled ? "cancelled" as const : "completed" as const,
-    owner: plan.owner,
+    owner: plan?.owner || "0x0000000000000000000000000000000000000000",
     currentUser: userAddress || "0x0000000000000000000000000000000000000000",
     deposits: [], // No longer showing deposits
     participantsList: participantsWithEns,

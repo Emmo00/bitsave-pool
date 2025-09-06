@@ -170,7 +170,8 @@ export function PreviewCards() {
 function PlanCard({ plan }: { plan: any }) {
   // Calculate progress and formatting
   const progress = plan.target && plan.target > 0n ? Number(plan.deposited) / Number(plan.target) * 100 : 0;
-  const deadlineDate = plan.deadline ? new Date(Number(plan.deadline) * 1000) : null;
+  const deadlineTimestamp = plan.deadline ? Number(plan.deadline) * 1000 : 0;
+  const deadlineDate = deadlineTimestamp > 0 && !isNaN(deadlineTimestamp) ? new Date(deadlineTimestamp) : null;
   
   // Token info
   const tokenInfo = SUPPORTED_TOKENS.find(t => t.address.toLowerCase() === plan.token.toLowerCase());

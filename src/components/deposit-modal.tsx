@@ -80,9 +80,20 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
   useEffect(() => {
     if (isSuccess && currentStep !== DepositStep.SUCCESS) {
       if (currentStep === DepositStep.APPROVE) {
-        // Approval completed, refetch allowance and move to deposit step
+        // Approval completed, refetch allowance and automatically proceed to deposit
         refetchAllowance()
-        setCurrentStep(DepositStep.DEPOSIT)
+        toast({
+          title: "Approval Successful!",
+          description: `Approved ${amount} ${tokenInfo.symbol} for spending`,
+        })
+        
+        // Automatically proceed to deposit after approval
+        setTimeout(() => {
+          setCurrentStep(DepositStep.DEPOSIT)
+          // Call deposit function after approval is complete
+          deposit(parseInt(plan.id), amount, tokenInfo.decimals)
+        }, 1000)
+        
       } else if (currentStep === DepositStep.DEPOSIT) {
         // Deposit completed
         setCurrentStep(DepositStep.SUCCESS)
@@ -100,7 +111,7 @@ export function DepositModal({ isOpen, onClose, plan, onSuccess }: DepositModalP
         }, 2000)
       }
     }
-  }, [isSuccess, currentStep, amount, tokenInfo.symbol, onClose, onSuccess, refetchAllowance, toast])
+  }, [isSuccess, currentStep, amount, tokenInfo.symbol, onClose, onSuccess, refetchAllowance, toast, deposit, plan.id])
 
   // Handle transaction errors
   useEffect(() => {

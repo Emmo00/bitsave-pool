@@ -46,6 +46,10 @@ export function usePlan(planId: number) {
     args: [BigInt(planId)],
     query: {
       enabled: planId >= 0, // Plans can start from 0
+      staleTime: 30_000, // Data is considered fresh for 30 seconds
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      refetchOnMount: false, // Don't refetch on component mount if data exists
     },
   });
 }
@@ -87,6 +91,10 @@ export function useUserContribution(planId: number, userAddress?: Address) {
     args: [BigInt(planId), userAddress],
     query: {
       enabled: planId >= 0 && !!userAddress, // Updated to allow plan ID 0
+      staleTime: 30_000, // Data is considered fresh for 30 seconds
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      refetchOnMount: false, // Don't refetch on component mount if data exists
     },
   });
 }
@@ -102,6 +110,10 @@ export function usePlanParticipants(planId: number) {
     args: [BigInt(planId)],
     query: {
       enabled: planId >= 0, // Updated to allow plan ID 0
+      staleTime: 30_000, // Data is considered fresh for 30 seconds
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      refetchOnMount: false, // Don't refetch on component mount if data exists
     },
   });
 }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
 import { Address } from "viem";
 import { useAccount } from "wagmi";
 import { useUserPlans, usePlan, useUserContribution, formatTokenAmount, SavingsPlan } from "@/contracts/hooks";
@@ -58,18 +58,23 @@ function PlanDataFetcher({
   // Function to get token info
   const getTokenInfo = (tokenAddress: Address) => {
     if (!tokenAddress) {
+      // Use the first supported token as fallback instead of hardcoding
+      const fallbackToken = SUPPORTED_TOKENS[0];
       return {
         symbol: "Unknown",
-        decimals: 18,
+        decimals: fallbackToken.decimals,
       };
     }
     
     const token = SUPPORTED_TOKENS.find(
       (t) => t.address.toLowerCase() === tokenAddress.toLowerCase()
     );
+    
+    // Use the first supported token as fallback instead of hardcoding
+    const fallbackToken = SUPPORTED_TOKENS[0];
     return {
       symbol: token?.symbol || "Unknown",
-      decimals: token?.decimals || 18,
+      decimals: token?.decimals || fallbackToken.decimals,
     };
   };
 
@@ -77,7 +82,21 @@ function PlanDataFetcher({
   const enhancedPlan = useMemo(() => {
     if (!planData) return null;
 
-    const plan = planData as SavingsPlan;
+    // Convert tuple to object format if needed
+    const plan = Array.isArray(planData) ? {
+      id: planData[0] as bigint,
+      name: planData[1] as string,
+      owner: planData[2] as Address,
+      beneficiary: planData[3] as Address,
+      token: planData[4] as Address,
+      target: planData[5] as bigint,
+      deposited: planData[6] as bigint,
+      deadline: planData[7] as bigint,
+      active: planData[8] as boolean,
+      withdrawn: planData[9] as boolean,
+      cancelled: planData[10] as boolean,
+    } as SavingsPlan : planData as SavingsPlan;
+    
     if (!plan.token) return null; // Add null check for token
     
     const tokenInfo = getTokenInfo(plan.token);
@@ -125,7 +144,7 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
   } = useUserPlans(address);
 
   // Handle when a plan is loaded
-  const handlePlanLoaded = (plan: EnhancedSavingsPlan) => {
+  const handlePlanLoaded = useCallback((plan: EnhancedSavingsPlan) => {
     setEnhancedPlans(prev => {
       const existing = prev.find(p => p.id === plan.id);
       if (existing) {
@@ -136,7 +155,7 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
         return [...prev, plan];
       }
     });
-  };
+  }, []);
 
   // Reset when address changes
   useEffect(() => {
@@ -147,10 +166,13 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
 
   // Calculate summary data
   const userSavingsData: UserSavingsData = useMemo(() => {
-    // Convert all amounts to common decimal (18) for aggregation
+    // Use the first supported token's decimals as the common standard for aggregation
+    const commonDecimals = SUPPORTED_TOKENS[0].decimals;
+    
+    // Convert all amounts to common decimal for aggregation
     const totalSavedInCommonDecimals = enhancedPlans.reduce((sum, plan) => {
-      // Convert from plan's decimals to 18 decimals for consistent aggregation
-      const scaleFactor = 18 - plan.tokenDecimals;
+      // Convert from plan's decimals to common decimals for consistent aggregation
+      const scaleFactor = commonDecimals - plan.tokenDecimals;
       const scaledAmount = scaleFactor >= 0 
         ? plan.userContribution * (10n ** BigInt(scaleFactor))
         : plan.userContribution / (10n ** BigInt(-scaleFactor));
@@ -158,8 +180,8 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
     }, 0n);
 
     const totalTargetsInCommonDecimals = enhancedPlans.reduce((sum, plan) => {
-      // Convert from plan's decimals to 18 decimals for consistent aggregation
-      const scaleFactor = 18 - plan.tokenDecimals;
+      // Convert from plan's decimals to common decimals for consistent aggregation
+      const scaleFactor = commonDecimals - plan.tokenDecimals;
       const scaledAmount = scaleFactor >= 0 
         ? plan.target * (10n ** BigInt(scaleFactor))
         : plan.target / (10n ** BigInt(-scaleFactor));
@@ -171,8 +193,8 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
       totalPlans: enhancedPlans.length,
       activePlans: enhancedPlans.filter((p) => p.active && !p.isExpired).length,
       completedPlans: enhancedPlans.filter((p) => p.progressPercentage >= 100).length,
-      totalSaved: formatTokenAmount(totalSavedInCommonDecimals, 18), // Using 18 decimals for aggregated display
-      totalTargets: formatTokenAmount(totalTargetsInCommonDecimals, 18),
+      totalSaved: formatTokenAmount(totalSavedInCommonDecimals, commonDecimals), // Using common decimals for aggregated display
+      totalTargets: formatTokenAmount(totalTargetsInCommonDecimals, commonDecimals),
       isLoading: isLoadingPlanIds,
       error: planIdsError?.message || null,
       refetch: () => {
@@ -205,7 +227,7 @@ export function SavingsProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Render plan data fetchers for each plan ID
-  const planDataFetchers = React.useMemo(() => {
+  const planDataFetchers = useMemo(() => {
     if (!address || !planIds || !Array.isArray(planIds)) {
       return null;
     }

@@ -56,6 +56,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     contribution: number;
   }>>([]);
   const [ensLoading, setEnsLoading] = useState(false);
+  const [contributionsLoading, setContributionsLoading] = useState(false);
   const [contributionData, setContributionData] = useState<{ [address: string]: bigint }>({});
   
   const navigate = useNavigate();
@@ -95,6 +96,8 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     planId,
     numericPlanId,
     planData,
+    planDataType: typeof planData,
+    planDataArray: Array.isArray(planData),
     planLoading,
     planError,
     participantsData,
@@ -104,14 +107,44 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   // Type assertion for participants data - it should be an array of addresses
   const participants = (participantsData as Address[]) || [];
 
+  // Convert plan data to object format if it's a tuple
+  const planObject = planData ? (Array.isArray(planData) ? {
+    id: planData[0] as bigint,
+    name: planData[1] as string,
+    owner: planData[2] as Address,
+    beneficiary: planData[3] as Address,
+    token: planData[4] as Address,
+    target: planData[5] as bigint,
+    deposited: planData[6] as bigint,
+    deadline: planData[7] as bigint,
+    active: planData[8] as boolean,
+    withdrawn: planData[9] as boolean,
+    cancelled: planData[10] as boolean,
+  } as SavingsPlan : planData as SavingsPlan) : null;
+  
+  console.log('Plan object after conversion:', {
+    original: planData,
+    converted: planObject,
+    target: planObject?.target,
+    deposited: planObject?.deposited,
+    name: planObject?.name
+  });
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Fetch individual contributions manually to avoid hook rules violations
   useEffect(() => {
+    // Prevent multiple simultaneous requests
+    if (contributionsLoading || !participants.length || numericPlanId < 0) return;
+    
+    // Check if we already have contribution data for these participants
+    const hasAllContributions = participants.every(p => contributionData.hasOwnProperty(p));
+    if (hasAllContributions) return;
+
     const fetchContributions = async () => {
-      if (!participants.length || !planData) return;
+      setContributionsLoading(true);
       
       try {
         const { readContract } = await import('viem/actions');
@@ -146,84 +179,94 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
         setContributionData(contributions);
       } catch (error) {
         console.error('Error fetching contributions:', error);
+      } finally {
+        setContributionsLoading(false);
       }
     };
 
     fetchContributions();
-  }, [participants, numericPlanId, planData]);
+  }, [participants.length, numericPlanId, chainId]); // Removed planData and use participants.length instead
 
   // Resolve ENS data for participants
   useEffect(() => {
-    if (participants && participants.length > 0 && Object.keys(contributionData).length > 0 && planData) {
-      setEnsLoading(true);
-      
-      const resolveParticipants = async () => {
-        try {
-          const plan = planData as SavingsPlan;
-          const tokenInfo = getTokenInfo(plan?.token);
-          
-          const resolvedParticipants = await Promise.all(
-            participants.map(async (address: Address) => {
-              try {
-                const ensData = await resolveENSOrAddress(address);
-                
-                // Get real contribution amount
-                const contributionBigInt = contributionData[address] || BigInt(0);
-                const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
-                
-                return {
-                  address,
-                  ensName: ensData.ensName,
-                  avatar: ensData.avatar || generateFallbackAvatar(address),
-                  displayName: ensData.displayName,
-                  contribution: contributionAmount,
-                };
-              } catch (error) {
-                console.warn(`Failed to resolve ENS for ${address}:`, error);
-                
-                // Get real contribution amount even if ENS fails
-                const contributionBigInt = contributionData[address] || BigInt(0);
-                const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
-                
-                return {
-                  address,
-                  ensName: undefined,
-                  avatar: generateFallbackAvatar(address),
-                  displayName: formatAddress(address),
-                  contribution: contributionAmount,
-                };
-              }
-            })
-          );
-          
-          setParticipantsWithEns(resolvedParticipants);
-        } catch (error) {
-          console.error('Error resolving ENS data:', error);
-          // Fallback to addresses only with real contribution data
-          const plan = planData as SavingsPlan;
-          const tokenInfo = getTokenInfo(plan?.token);
-          
-          const fallbackParticipants = participants.map((address: Address) => {
-            const contributionBigInt = contributionData[address] || BigInt(0);
-            const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
-              
-            return {
-              address,
-              ensName: undefined,
-              avatar: generateFallbackAvatar(address),
-              displayName: formatAddress(address),
-              contribution: contributionAmount,
-            };
-          });
-          setParticipantsWithEns(fallbackParticipants);
-        } finally {
-          setEnsLoading(false);
-        }
-      };
-
-      resolveParticipants();
+    // Prevent running if already loading, no participants, or no contribution data
+    if (ensLoading || !participants.length || !Object.keys(contributionData).length || !planObject?.token) {
+      return;
     }
-  }, [participants, contributionData, planData]);
+
+    // Check if we already have ENS data for the current participants
+    const currentParticipantKeys = participants.sort().join(',');
+    const existingParticipantKeys = participantsWithEns.map(p => p.address).sort().join(',');
+    if (currentParticipantKeys === existingParticipantKeys && participantsWithEns.length > 0) {
+      return;
+    }
+
+    setEnsLoading(true);
+    
+    const resolveParticipants = async () => {
+      try {
+        const tokenInfo = getTokenInfo(planObject?.token);
+        
+        const resolvedParticipants = await Promise.all(
+          participants.map(async (address: Address) => {
+            try {
+              const ensData = await resolveENSOrAddress(address);
+              
+              // Get real contribution amount
+              const contributionBigInt = contributionData[address] || BigInt(0);
+              const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
+              
+              return {
+                address,
+                ensName: ensData.ensName,
+                avatar: ensData.avatar || generateFallbackAvatar(address),
+                displayName: ensData.displayName,
+                contribution: contributionAmount,
+              };
+            } catch (error) {
+              console.warn(`Failed to resolve ENS for ${address}:`, error);
+              
+              // Get real contribution amount even if ENS fails
+              const contributionBigInt = contributionData[address] || BigInt(0);
+              const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
+              
+              return {
+                address,
+                ensName: undefined,
+                avatar: generateFallbackAvatar(address),
+                displayName: formatAddress(address),
+                contribution: contributionAmount,
+              };
+            }
+          })
+        );
+        
+        setParticipantsWithEns(resolvedParticipants);
+      } catch (error) {
+        console.error('Error resolving ENS data:', error);
+        // Fallback to addresses only with real contribution data
+        const tokenInfo = getTokenInfo(planObject?.token);
+        
+        const fallbackParticipants = participants.map((address: Address) => {
+          const contributionBigInt = contributionData[address] || BigInt(0);
+          const contributionAmount = parseFloat(formatTokenAmount(contributionBigInt, tokenInfo.decimals));
+            
+          return {
+            address,
+            ensName: undefined,
+            avatar: generateFallbackAvatar(address),
+            displayName: formatAddress(address),
+            contribution: contributionAmount,
+          };
+        });
+        setParticipantsWithEns(fallbackParticipants);
+      } finally {
+        setEnsLoading(false);
+      }
+    };
+
+    resolveParticipants();
+  }, [participants.length, Object.keys(contributionData).length, planObject?.token]); // Use stable dependencies
 
   if (!mounted) {
     return null;
@@ -308,23 +351,22 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
     );
   }
 
-  const plan = planData as SavingsPlan;
-  const tokenInfo = getTokenInfo(plan?.token);
+  const tokenInfo = getTokenInfo(planObject?.token);
   
   // Calculate plan metrics with safety checks
-  const targetAmount = plan?.target ? parseFloat(formatTokenAmount(plan.target, tokenInfo.decimals)) : 0;
-  const currentAmount = plan?.deposited ? parseFloat(formatTokenAmount(plan.deposited, tokenInfo.decimals)) : 0;
+  const targetAmount = planObject?.target ? parseFloat(formatTokenAmount(planObject.target, tokenInfo.decimals)) : 0;
+  const currentAmount = planObject?.deposited ? parseFloat(formatTokenAmount(planObject.deposited, tokenInfo.decimals)) : 0;
   const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
   
   // Plan status with safety checks
-  const isOwner = userAddress && plan?.owner && plan.owner.toLowerCase() === userAddress.toLowerCase();
+  const isOwner = userAddress && planObject?.owner && planObject.owner.toLowerCase() === userAddress.toLowerCase();
   const isCompleted = progress >= 100;
-  const isCancelled = plan?.cancelled || false;
-  const isActive = plan?.active && !plan?.cancelled && !plan?.withdrawn;
+  const isCancelled = planObject?.cancelled || false;
+  const isActive = planObject?.active && !planObject?.cancelled && !planObject?.withdrawn;
   const canWithdraw = isOwner && (isCompleted || isCancelled);
   
   // Calculate days left with safety checks
-  const deadlineTimestamp = plan?.deadline ? Number(plan.deadline) * 1000 : Date.now(); // Convert to milliseconds
+  const deadlineTimestamp = planObject?.deadline ? Number(planObject.deadline) * 1000 : Date.now(); // Convert to milliseconds
   const isValidTimestamp = deadlineTimestamp && deadlineTimestamp > 0 && !isNaN(deadlineTimestamp);
   const daysLeft = isValidTimestamp 
     ? Math.ceil((deadlineTimestamp - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -333,14 +375,14 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
   // Create plan object in expected format for modals
   const planForModals = {
     id: planId,
-    name: plan?.name || `Savings Plan #${planId}`,
+    name: planObject?.name || `Savings Plan #${planId}`,
     token: tokenInfo.symbol,
     target: targetAmount,
     current: currentAmount,
     participants: participants.length,
     deadline: isValidTimestamp ? new Date(deadlineTimestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     status: isActive ? "active" as const : isCancelled ? "cancelled" as const : "completed" as const,
-    owner: plan?.owner || "0x0000000000000000000000000000000000000000",
+    owner: planObject?.owner || "0x0000000000000000000000000000000000000000",
     currentUser: userAddress || "0x0000000000000000000000000000000000000000",
     deposits: [], // No longer showing deposits
     participantsList: participantsWithEns,
@@ -532,7 +574,7 @@ export function PlanDetailsView({ planId }: PlanDetailsViewProps) {
                             <p className="font-medium text-foreground">
                               {participant.displayName}
                             </p>
-                            {participant.address && plan?.owner && participant.address.toLowerCase() === plan.owner.toLowerCase() && (
+                            {participant.address && planObject?.owner && participant.address.toLowerCase() === planObject.owner.toLowerCase() && (
                               <Badge variant="secondary" className="text-xs">
                                 Owner
                               </Badge>
